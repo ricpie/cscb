@@ -16,67 +16,14 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+email = 1
 
-
-### Note, need to set up a folder called "output" in your working directory.
-
-cooking_duration_max = 27.5 #hours
-cooking_duration_min = 5/60 #hours
-
-geocene_path <- "HAPIN IR-2"
-
-source('load.R') #libraries
-source('functions.R') #functions to clean, plot, summarize
+source('r_scripts/load.R') #libraries
+source('r_scripts/UPAS_functions.R') #functions to clean, plot, summarize
 
 
 ```
 
-
-### When this document was created
-```{r}
-
-Sys.time()
-```
-
-# Inputs
-
-* Data from the HAPIN IR-2 folder provide by Jean at the DMC.  Specifically, use the following:
-+ Cooking events (by-day and by-event).  Cooking events are generated using a single processor for all non-lpg stoves (75 C primary threshold), and IRC-specific processors for the LPG stoves.  The primary threshold temperatures for the LPG firefinder algorithms are calculated as the medians of all the median daily temperatures from LPG stoves at the given IRC, plus four times the standard deviation of those daily medians.  This gives values of 42.8 for India, 26.2 for Peru, 35.7 for Rwanda, and 35.6 for Guatemala.  Events must be more than 5-minute in duration, and events are grouped into single events if they are within 30 minutes of each other.
-+ Mission information.  This includes key data such as mission start and end times.
-+ Stove destruction data.  
-+ Stove thermocouple error file.  This allows us to filter data out after a thermocouple error has been observed.
-
-
-# Outputs
-
-* A complete list of cooking events in RDS and csv format (by-event, and by-day), which are then delivered to the DMC for distribution
-* A filtered list of cooking events in RDS and csv format (by-event, and by-day), which are then delivered to the DMC for distribution
-* Cleaning/truncation follows a multi-step process described in the HEDI handbook.  Both data sets include multiple flags, to use as required by the application.
-+ 1. [valid_event] For the error flag as defined above (1 = valid), 
-+ 2. [valid_date_range] For date range outside of the enrolled window (1 = within pre-birth window for given household)
-+ 3. [valid_pre_exit] For data before the study exit (1 = data before the study exit) 
-+ 4. [valid_sample] Composite of the above.  If all of the samples are good, the row (event or event daily summary) is considered good, and set to 1.
-+ Additional cleaning rules are outlined below.
-
-
-# TO DO
-* Add info for destroyed stoves
-* Make table: hh with dots/ no dots but known to be destroyed/ no dots for unknown reason
-
-
-# Issues
-* LPG processor? 
-* some unique_ids match two stove types (5 of these, see conflicting_stove_type.csv)
-
-* Some unique_ids don't match missions (these may be < 1 day, check with new download)
-* are short duration events true cooking events? [note - doesn't change the medians much, so minor issue]
-* need to figure out how to get a correct observation time (currently using randomization/stove delivery and birth dates, not mission dates)
-* potentially still unresolved issue with gappy data (not in this code - see SUMS-Analysis-Dec_2020.Rmd)
-
-* HH with events/mission start times more than 30 days before randomization - filtered out for now
-* some expected dots still missing
-
-* Haven't combined data from dots with hh that destroyed stoves (and therefore have no dots)
 
 
 # Cleaning rules
@@ -95,3 +42,63 @@ Sys.time()
 # Data
 ## Load data
 ``` {r load-data, cache = TRUE}
+
+  # UPAS data import and check
+upasfilepath <- "~/Dropbox/World Bank CSCB Field Folder/Field Data/UPAS Data" 
+
+file_list_upas <- list.files(upasfilepath, pattern='.txt|.TXT', full.names = T,recursive = T) %>% 
+  grep("DIAGNOSTIC", ., ignore.case = TRUE, value = TRUE, invert = TRUE)  %>% 
+  grep("2021-3-9_34DACON_C_PS1473_C0214", ., ignore.case = TRUE, value = TRUE, invert = TRUE)  
+  
+file_list_upas = file_list_upas[sapply(file_list_upas, file.size) > 10000]
+
+upas_data = rbindlist(lapply(file_list_upas[1:9],read_upas),fill=TRUE) 
+
+
+upas_header <- rbindlist(lapply(file_list_upas,read_upas_header)) %>% 
+  as.data.frame() %>% 
+  dplyr::arrange(UPASlogFilename,StartDateTimeUTC) %>% 
+  dplyr::mutate(file_start_date = as.Date(StartDateTimeUTC),
+                CartridgeID = toupper(CartridgeID),
+                StartDateTimeLocal = with_tz(StartDateTimeUTC, 
+                                             tzone="America/Los_Angeles"),
+                date_start = date(StartDateTimeLocal)) %>%
+  dplyr::select(-UPASfirmware,-LifetimeSampleCount,-LifetimeSampleRuntime,-GPSUTCOffset,ProgrammedStartDelay,-AppLock,-AppVersion)
+  # dplyr::filter(date(StartDateTimeLocal) %in% date(field_log$excel_datetime_start) | 
+                  # hour(StartDateTimeLocal) == 0)
+
+#Import list of filters assembled in Colorado
+# filter_list = readxl::read_xlsx(list.files(path = "~/Dropbox/Coachella Field/Data",
+#                                            pattern = 'AspenData', recursive = T, full.names = T),
+#                                 skip = 0,sheet = 'Filter List')[,2:5] 
+# 
+# colnames(filter_list) <-c("FilterID", "FilterType","CartridgeID","DateSent")
+# filter_list <- filter_list %>% 
+#   dplyr::filter(!is.na(DateSent)) %>% 
+#   dplyr::mutate(DateSent = as.Date(DateSent),
+#                 FilterID = toupper(FilterID),
+#                 CartridgeID = toupper(CartridgeID),
+#                 FilterID = case_when(FilterType == "Quartz" ~ paste0(as.character(DateSent),"_",CartridgeID),
+#                                      TRUE ~ FilterID))
+
+```
+
+
+```{r sendemails}
+
+
+list_of_datasets <- list(
+  "UPAS"=upas_header
+  # "Deployment Summary"=deployment_check
+)
+filename = paste0("QA_Reports/CSCB_QA_Report_",  Sys.Date(), ".xlsx")
+write.xlsx(list_of_datasets,file = filename)
+
+source('r_scripts/emailfun.R')
+emailfun(email,filename)
+
+
+
+
+
+```
