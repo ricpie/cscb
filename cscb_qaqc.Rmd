@@ -1,0 +1,97 @@
+---
+title: "cscb_qaqc"
+knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = paste0(substr(inputFile,1,nchar(inputFile)-4),Sys.Date(),'.html')) })
+
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: false
+    number_sections: true
+    highlight: pygments 
+    theme: cosmo
+    code_folding: hide
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+
+### Note, need to set up a folder called "output" in your working directory.
+
+cooking_duration_max = 27.5 #hours
+cooking_duration_min = 5/60 #hours
+
+geocene_path <- "HAPIN IR-2"
+
+source('load.R') #libraries
+source('functions.R') #functions to clean, plot, summarize
+
+
+```
+
+
+### When this document was created
+```{r}
+
+Sys.time()
+```
+
+# Inputs
+
+* Data from the HAPIN IR-2 folder provide by Jean at the DMC.  Specifically, use the following:
++ Cooking events (by-day and by-event).  Cooking events are generated using a single processor for all non-lpg stoves (75 C primary threshold), and IRC-specific processors for the LPG stoves.  The primary threshold temperatures for the LPG firefinder algorithms are calculated as the medians of all the median daily temperatures from LPG stoves at the given IRC, plus four times the standard deviation of those daily medians.  This gives values of 42.8 for India, 26.2 for Peru, 35.7 for Rwanda, and 35.6 for Guatemala.  Events must be more than 5-minute in duration, and events are grouped into single events if they are within 30 minutes of each other.
++ Mission information.  This includes key data such as mission start and end times.
++ Stove destruction data.  
++ Stove thermocouple error file.  This allows us to filter data out after a thermocouple error has been observed.
+
+
+# Outputs
+
+* A complete list of cooking events in RDS and csv format (by-event, and by-day), which are then delivered to the DMC for distribution
+* A filtered list of cooking events in RDS and csv format (by-event, and by-day), which are then delivered to the DMC for distribution
+* Cleaning/truncation follows a multi-step process described in the HEDI handbook.  Both data sets include multiple flags, to use as required by the application.
++ 1. [valid_event] For the error flag as defined above (1 = valid), 
++ 2. [valid_date_range] For date range outside of the enrolled window (1 = within pre-birth window for given household)
++ 3. [valid_pre_exit] For data before the study exit (1 = data before the study exit) 
++ 4. [valid_sample] Composite of the above.  If all of the samples are good, the row (event or event daily summary) is considered good, and set to 1.
++ Additional cleaning rules are outlined below.
+
+
+# TO DO
+* Add info for destroyed stoves
+* Make table: hh with dots/ no dots but known to be destroyed/ no dots for unknown reason
+
+
+# Issues
+* LPG processor? 
+* some unique_ids match two stove types (5 of these, see conflicting_stove_type.csv)
+
+* Some unique_ids don't match missions (these may be < 1 day, check with new download)
+* are short duration events true cooking events? [note - doesn't change the medians much, so minor issue]
+* need to figure out how to get a correct observation time (currently using randomization/stove delivery and birth dates, not mission dates)
+* potentially still unresolved issue with gappy data (not in this code - see SUMS-Analysis-Dec_2020.Rmd)
+
+* HH with events/mission start times more than 30 days before randomization - filtered out for now
+* some expected dots still missing
+
+* Haven't combined data from dots with hh that destroyed stoves (and therefore have no dots)
+
+
+# Cleaning rules
+
+* remove mission with start time set to 1969
+* remove missions & events with start time more than 30 days before s6 (randomization) date
+* remove events before install in intervention hh, keep all dates in control
+* keep only post-randomization events
+* remove data on or after day with thermocouple error. Truncate mission time/observation time after this so as not to overinflate non-event time. (Keep data before thermocouple error from dot that starts recording in the future afterward)
+* remove short events (< 5 mins on all stoves) 
+* *NEW* remove missions that ran for less than one day
+* [still working on how to calculate valid observational time given multiple dots in households - probably have to only include the time when all known dots on a particular type of stove (e.g. traditional) were functioning?]
+* events are received in UTC and are converted to local time in this cleaning step.
+
+
+# Data
+## Load data
+``` {r load-data, cache = TRUE}
