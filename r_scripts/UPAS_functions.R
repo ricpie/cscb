@@ -112,7 +112,7 @@ read_upas_header <- function(file, update_names=FALSE){
 read_upas <- function(file, update_names=FALSE){
   
   require(dplyr)
-  
+  print(file)
   # Get header data
   df_h <- read_upas_header(file, update_names=update_names) %>%
           dplyr::select(any_of(c("UPASlogFilename","UPASserial","UPASfirmware","SampleName","CartridgeID", 
