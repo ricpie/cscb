@@ -24,23 +24,13 @@ source('r_scripts/UPAS_functions.R') #functions to clean, plot, summarize
 
 ```
 
-
-
 # Cleaning rules
 
 * remove mission with start time set to 1969
 * remove missions & events with start time more than 30 days before s6 (randomization) date
-* remove events before install in intervention hh, keep all dates in control
-* keep only post-randomization events
-* remove data on or after day with thermocouple error. Truncate mission time/observation time after this so as not to overinflate non-event time. (Keep data before thermocouple error from dot that starts recording in the future afterward)
-* remove short events (< 5 mins on all stoves) 
-* *NEW* remove missions that ran for less than one day
-* [still working on how to calculate valid observational time given multiple dots in households - probably have to only include the time when all known dots on a particular type of stove (e.g. traditional) were functioning?]
-* events are received in UTC and are converted to local time in this cleaning step.
+* remove events before insta
 
-
-# Data
-## Load data
+# Load UPAS data
 ``` {r load-data, cache = TRUE}
 
   # UPAS data import and check
@@ -63,27 +53,31 @@ upas_header <- rbindlist(lapply(file_list_upas,read_upas_header)) %>%
                 StartDateTimeLocal = with_tz(StartDateTimeUTC, 
                                              tzone="America/Los_Angeles"),
                 date_start = date(StartDateTimeLocal)) %>%
-  dplyr::select(-UPASfirmware,-LifetimeSampleCount,-LifetimeSampleRuntime,-GPSUTCOffset,ProgrammedStartDelay,-AppLock,-AppVersion)
+  dplyr::select(-UPASfirmware,-LifetimeSampleCount,-LifetimeSampleRuntime,-GPSUTCOffset,ProgrammedStartDelay,-AppLock,-AppVersion,
+                -StartOnNextPowerUp,-LogInterval,-LogFileMode,-file_start_date,-DutyCycleWindow,-GPSEnabled,-ProgrammedStartDelay,
+                -StartBatteryCharge,-EndBatteryCharge,-ShutdownMode,-SampledRuntime,-VolumetricFlowRate,-FlowOffset)
   # dplyr::filter(date(StartDateTimeLocal) %in% date(field_log$excel_datetime_start) | 
                   # hour(StartDateTimeLocal) == 0)
 
-#Import list of filters assembled in Colorado
-# filter_list = readxl::read_xlsx(list.files(path = "~/Dropbox/Coachella Field/Data",
-#                                            pattern = 'AspenData', recursive = T, full.names = T),
-#                                 skip = 0,sheet = 'Filter List')[,2:5] 
-# 
-# colnames(filter_list) <-c("FilterID", "FilterType","CartridgeID","DateSent")
-# filter_list <- filter_list %>% 
-#   dplyr::filter(!is.na(DateSent)) %>% 
-#   dplyr::mutate(DateSent = as.Date(DateSent),
-#                 FilterID = toupper(FilterID),
-#                 CartridgeID = toupper(CartridgeID),
-#                 FilterID = case_when(FilterType == "Quartz" ~ paste0(as.character(DateSent),"_",CartridgeID),
-#                                      TRUE ~ FilterID))
+```
+
+# Import ODK
+```{r import_odk}
+
+
+
+
+```
+
+# Import cooking events
+```{r import_cooking}
+
+
 
 ```
 
 
+# Save and send
 ```{r sendemails}
 
 
