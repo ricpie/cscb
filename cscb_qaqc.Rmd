@@ -42,7 +42,7 @@ file_list_upas <- list.files(upasfilepath, pattern='.txt|.TXT', full.names = T,r
 
 file_list_upas = file_list_upas[sapply(file_list_upas, file.size) > 10000]
 
-upas_data = rbindlist(lapply(file_list_upas[1:9],read_upas),fill=TRUE) 
+upas_data = rbindlist(lapply(file_list_upas,read_upas),fill=TRUE) 
 
 
 upas_header <- rbindlist(lapply(file_list_upas,read_upas_header)) %>% 
@@ -64,8 +64,15 @@ upas_header <- rbindlist(lapply(file_list_upas,read_upas_header)) %>%
 # Import ODK
 ```{r import_odk}
 
-
-
+# sums_odk_path = "~/Dropbox/World Bank CSCB Field Folder/Field Data/Survey Data (ODK)/SUMS/SUMs Install and Download/SUMs Install and Download-downloadsum_repeat.csv"
+# 
+# odkstart = data.table::rbindlist(
+#   lapply(list.files(start_path, pattern='.CSV|.csv', full.names = T,recursive = T),
+#          function(x) read_csv(x,
+#                                         col_names = TRUE,
+#                                         col_types = cols(.default = col_character()))))
+#  
+# end_path = "~/Dropbox/Jacaranda Kenya Field Folder/Data/ODK Data/MNCH_InstrumentEnd.csv/MNCH_InstrumentEnd.csv"
 
 ```
 
@@ -84,7 +91,7 @@ file_list_sums <- list.files(sumsfilepath, pattern='.CSV|.csv', full.names = T,r
                 filename = file_path_sans_ext(basename(pathname))) %>% 
   tidyr::separate(filename,c("HHID","fieldworker","stove","download"))
 
-
+kable(file_list_sums,caption = "Summary of SUMs files names, and parsing attempt","pipe")
 ```
 
 
@@ -96,7 +103,7 @@ list_of_datasets <- list(
   "UPAS"=upas_header,
   "sums" = file_list_sums)
 
-filename = paste0("~/Dropbox/World Bank CSCB Field Folder/Field Data/QA_Reports/CSCB_QA_Report_",  Sys.Date(), ".xlsx")
+filename = paste0("~/Dropbox/World Bank CSCB Field Folder/Field Data/QA Reports/CSCB_QA_Report_",  Sys.Date(), ".xlsx")
 write.xlsx(list_of_datasets,file = filename)
 
 source('r_scripts/emailfun.R')
