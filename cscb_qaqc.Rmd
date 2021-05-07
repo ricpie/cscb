@@ -86,12 +86,13 @@ odk_sums_install = read_csv(path_odk_sums_list %>% grep("Download.csv",., ignore
   tidyr::separate(`A_BG_visit1-A3_HHID`,c("HHID","fieldworker","group")) %>% 
   dplyr::mutate(datetime_install = paste0(`A_BG_visit1-A1_date`,`A_BG_visit1-A2_visittime`)) %>% 
   dplyr::na_if(.,"NANA") %>% 
-  dplyr::mutate(datetime_install = as.POSIXct(datetime_install, tz = local_tz, optional = FALSE))
+  dplyr::mutate(datetime_install = as.POSIXct(datetime_install, tz = local_tz, optional = FALSE)) %>% 
+  setNames(gsub("[[:punct:]]","", names(.))) 
 
 odk_sums_install_check <- odk_sums_install %>% 
-  dplyr::select("HHID","fieldworker","group","datetime_install",
-                "A_BG_visit1-gps-Latitude","A_BG_visit1-gps-Longitude",
-                "Status","B1_SUMstove","B3_SUMID")
+  dplyr::select("HHID","fieldworker","group","datetimeinstall",
+                "ABGvisit1gpsLatitude","ABGvisit1gpsLongitude",
+                "Status","B1SUMstove","B3SUMID")
 
 
 
@@ -107,14 +108,16 @@ odk_sums_download = read_csv(path_odk_sums_list %>% grep("Download.csv",., ignor
   tidyr::separate(`A_BG_visit1-A3_HHID`,c("HHID","fieldworker","group")) %>% 
   dplyr::mutate(datetime_download = paste0(`A_BG_visit1-A1_date`,`A_BG_visit1-A2_visittime`)) %>% 
   dplyr::na_if(.,"NANA") %>% 
-  dplyr::mutate(datetime_download = as.POSIXct(datetime_download, tz = local_tz, optional = FALSE))
+  dplyr::mutate(datetime_download = as.POSIXct(datetime_download, tz = local_tz, optional = FALSE)) %>% 
+  setNames(gsub("[[:punct:]]","", names(.))) 
+
 
 
 odk_sums_download_check <- odk_sums_download %>% 
-  dplyr::select(c("HHID","fieldworker","group","datetime_download",
-                  "A_BG_visit1-gps-Latitude","A_BG_visit1-gps-Longitude",,"B3_sumid",
-                  "B4_stove","B13_dlsuccess","B15_1_filename",
-                  "B16_maxtemp","B17_mintemp","B18_dlfailure"))
+  dplyr::select(c("HHID","fieldworker","group","datetimedownload",
+                  "ABGvisit1gpsLatitude","ABGvisit1gpsLongitude","B3sumid",
+                  "B4stove","B13dlsuccess","B151filename",
+                  "B16maxtemp","B17mintemp","B18dlfailure"))
 
 ```
 
@@ -132,7 +135,8 @@ odk_start = read_csv(path_odk_start,
                 datetime_hap = paste0(`B_HAP-B2_HAPdate`,`B_HAP-B3_HAPtime`)) %>% 
   dplyr::na_if(.,"NANA") %>% 
   dplyr::mutate(datetime_pe = as.POSIXct(datetime_pe, tz = local_tz, optional = FALSE),
-                datetime_hap = as.POSIXct(datetime_hap, tz = local_tz, optional = FALSE))
+                datetime_hap = as.POSIXct(datetime_hap, tz = local_tz, optional = FALSE)) %>% 
+  setNames(gsub("[[:punct:]]","", names(.))) 
 
 
 odk_end = read_csv(path_odk_end,
@@ -141,13 +145,14 @@ odk_end = read_csv(path_odk_end,
   tidyr::separate(`A_HHInfo-A1_HHID`,c("HHID","fieldworker","group")) %>% 
   dplyr::mutate(datetime_end = paste0(`A_HHInfo-A2_PE_end_Date`,`A_HHInfo-A3_PE_end_Time`)) %>% 
   dplyr::na_if(.,"NANA") %>% 
-  dplyr::mutate(datetime_end = as.POSIXct(datetime_end, tz = local_tz, optional = FALSE))
+  dplyr::mutate(datetime_end = as.POSIXct(datetime_end, tz = local_tz, optional = FALSE)) %>% 
+  setNames(gsub("[[:punct:]]","", names(.))) 
 
 
 odk_check <- odk_start %>% 
-  dplyr::select(HHID,fieldworker,group,KEY,datetime_pe,datetime_hap,`C_PE-C0_PEUPASID`,`B_HAP-B0_HAPUPASID`) %>% 
+  dplyr::select(HHID,fieldworker,group,KEY,datetimepe,datetimehap,CPEC0PEUPASID,BHAPB0HAPUPASID) %>% 
   dplyr::full_join(odk_end %>% 
-                     dplyr::select(HHID,fieldworker,group,datetime_end,`E_SampleEnd-E24_notes`))
+                     dplyr::select(HHID,fieldworker,group,datetimeend,ESampleEndE24notes))
 
 ```
 
