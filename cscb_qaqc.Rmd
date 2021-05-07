@@ -15,9 +15,10 @@ output:
 ---
 # First chunk
 ## First chunk, level 2
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE,echo = F)
 email = 1
+local_tz = 'Africa/Nairobi'
 
 source('r_scripts/load.R') #libraries
 source('r_scripts/UPAS_functions.R') #functions to clean, plot, summarize
@@ -25,17 +26,15 @@ source('r_scripts/UPAS_functions.R') #functions to clean, plot, summarize
 
 ```
 
-# Cleaning rules
 
-* remove mission with start time set to 1969
-* remove missions & events with start time more than 30 days before s6 (randomization) date
-* remove events before insta
 
 # Load UPAS data
-``` {r load-data, cache = TRUE}
+## Cleaning rules
+* Import UPAS metadata, run some diagnostics.  Check for flow issues and run durations.
+``` {r load-data, cache = FALSE, echo = FALSE}
 
 # UPAS data import and check
-upasfilepath <- "~/Dropbox/World Bank CSCB Field Folder/Field Data/UPAS Data" 
+upasfilepath <- "~/Dropbox/World Bank CSCB Field Folder/Field Data/UPAS Data"
 
 file_list_upas <- list.files(upasfilepath, pattern='.txt|.TXT', full.names = T,recursive = T) %>% 
   grep("DIAGNOSTIC", ., ignore.case = TRUE, value = TRUE, invert = TRUE)  %>% 
@@ -57,28 +56,103 @@ upas_header <- rbindlist(lapply(file_list_upas,read_upas_header)) %>%
   dplyr::select(-UPASfirmware,-LifetimeSampleCount,-LifetimeSampleRuntime,-GPSUTCOffset,ProgrammedStartDelay,-AppLock,-AppVersion,
                 -StartOnNextPowerUp,-LogInterval,-LogFileMode,-file_start_date,-DutyCycleWindow,-GPSEnabled,-ProgrammedStartDelay,
                 -StartBatteryCharge,-EndBatteryCharge,-ShutdownMode,-SampledRuntime,-VolumetricFlowRate,-FlowOffset)
+
+kable(upas_header,"pipe",caption = "UPAS deployment summary")
 # dplyr::filter(date(StartDateTimeLocal) %in% date(field_log$excel_datetime_start) | 
 # hour(StartDateTimeLocal) == 0)
 
 ```
 
-# Import ODK
+# Import ODK SUMs
+```{r import_odk_sms}
+
+#Only assuming 4 files here - one for start/end, one for download repeat, and two for install repeats.  Make sure this is true!
+path_odk_sums_list = list.files("~/Dropbox/World Bank CSCB Field Folder/Field Data/Survey Data (ODK)/SUMS",pattern = ".csv|.CSV",full.names = T) %>% 
+  print()
+
+
+odk_sums_install = read_csv(path_odk_sums_list %>% grep("Download.csv",., ignore.case = TRUE, value = TRUE, invert = FALSE),
+                            col_names = TRUE,
+                            col_types = cols(.default = col_character())) %>% 
+  dplyr::filter(`A_BG_visit1-A7_installdownload` == 2) %>% 
+  dplyr::left_join(read_csv(path_odk_sums_list %>% grep("installsum_repeat1",., ignore.case = TRUE, value = TRUE, invert = FALSE),
+                            col_names = TRUE,
+                            col_types = cols(.default = col_character())) %>% 
+                     dplyr::mutate(KEY = PARENT_KEY)) %>% 
+  dplyr::left_join(read_csv(path_odk_sums_list %>% grep("installsum_repeat2",., ignore.case = TRUE, value = TRUE, invert = FALSE),
+                            col_names = TRUE,
+                            col_types = cols(.default = col_character())) %>% 
+                     dplyr::mutate(KEY = PARENT_KEY)) %>% 
+  tidyr::separate(`A_BG_visit1-A3_HHID`,c("HHID","fieldworker","group")) %>% 
+  dplyr::mutate(datetime_install = paste0(`A_BG_visit1-A1_date`,`A_BG_visit1-A2_visittime`)) %>% 
+  dplyr::na_if(.,"NANA") %>% 
+  dplyr::mutate(datetime_install = as.POSIXct(datetime_install, tz = local_tz, optional = FALSE))
+
+odk_sums_install_check <- odk_sums_install %>% 
+  dplyr::select("HHID","fieldworker","group","datetime_install",
+                "A_BG_visit1-gps-Latitude","A_BG_visit1-gps-Longitude",
+                "Status","B1_SUMstove","B3_SUMID")
+
+
+
+
+odk_sums_download = read_csv(path_odk_sums_list %>% grep("Download.csv",., ignore.case = TRUE, value = TRUE, invert = FALSE),
+                             col_names = TRUE,
+                             col_types = cols(.default = col_character())) %>% 
+  dplyr::filter(`A_BG_visit1-A7_installdownload` == 1) %>% 
+  dplyr::left_join(read_csv(path_odk_sums_list %>% grep("downloadsum_repeat.csv",., ignore.case = TRUE, value = TRUE, invert = FALSE),
+                            col_names = TRUE,
+                            col_types = cols(.default = col_character())) %>% 
+                     dplyr::mutate(KEY = PARENT_KEY)) %>% 
+  tidyr::separate(`A_BG_visit1-A3_HHID`,c("HHID","fieldworker","group")) %>% 
+  dplyr::mutate(datetime_download = paste0(`A_BG_visit1-A1_date`,`A_BG_visit1-A2_visittime`)) %>% 
+  dplyr::na_if(.,"NANA") %>% 
+  dplyr::mutate(datetime_download = as.POSIXct(datetime_download, tz = local_tz, optional = FALSE))
+
+
+odk_sums_download_check <- odk_sums_download %>% 
+  dplyr::select(c("HHID","fieldworker","group","datetime_download",
+                  "A_BG_visit1-gps-Latitude","A_BG_visit1-gps-Longitude",,"B3_sumid",
+                  "B4_stove","B13_dlsuccess","B15_1_filename",
+                  "B16_maxtemp","B17_mintemp","B18_dlfailure"))
+
+```
+
+# Import ODK 
 ```{r import_odk}
 
-# sums_odk_path = "~/Dropbox/World Bank CSCB Field Folder/Field Data/Survey Data (ODK)/SUMS/SUMs Install and Download/SUMs Install and Download-downloadsum_repeat.csv"
-# 
-# odkstart = data.table::rbindlist(
-#   lapply(list.files(start_path, pattern='.CSV|.csv', full.names = T,recursive = T),
-#          function(x) read_csv(x,
-#                                         col_names = TRUE,
-#                                         col_types = cols(.default = col_character()))))
-#  
-# end_path = "~/Dropbox/Jacaranda Kenya Field Folder/Data/ODK Data/MNCH_InstrumentEnd.csv/MNCH_InstrumentEnd.csv"
+path_odk_start = "~/Dropbox/World Bank CSCB Field Folder/Field Data/Survey Data (ODK)/Instrument Start-End/WBCSCB_InstrumentStart_v2.csv"
+path_odk_end = "~/Dropbox/World Bank CSCB Field Folder/Field Data/Survey Data (ODK)/Instrument Start-End/WBCSCB_InstrumentEnd_v1.csv"
+
+odk_start = read_csv(path_odk_start,
+                     col_names = TRUE,
+                     col_types = cols(.default = col_character())) %>% 
+  tidyr::separate(`A_HHInfo-A1_HHID`,c("HHID","fieldworker","group")) %>% 
+  dplyr::mutate(datetime_pe = paste0(`C_PE-C2_PEDate`,`C_PE-C3_PETime`),
+                datetime_hap = paste0(`B_HAP-B2_HAPdate`,`B_HAP-B3_HAPtime`)) %>% 
+  dplyr::na_if(.,"NANA") %>% 
+  dplyr::mutate(datetime_pe = as.POSIXct(datetime_pe, tz = local_tz, optional = FALSE),
+                datetime_hap = as.POSIXct(datetime_hap, tz = local_tz, optional = FALSE))
+
+
+odk_end = read_csv(path_odk_end,
+                   col_names = TRUE,
+                   col_types = cols(.default = col_character())) %>% 
+  tidyr::separate(`A_HHInfo-A1_HHID`,c("HHID","fieldworker","group")) %>% 
+  dplyr::mutate(datetime_end = paste0(`A_HHInfo-A2_PE_end_Date`,`A_HHInfo-A3_PE_end_Time`)) %>% 
+  dplyr::na_if(.,"NANA") %>% 
+  dplyr::mutate(datetime_end = as.POSIXct(datetime_end, tz = local_tz, optional = FALSE))
+
+
+odk_check <- odk_start %>% 
+  dplyr::select(HHID,fieldworker,group,KEY,datetime_pe,datetime_hap,`C_PE-C0_PEUPASID`,`B_HAP-B0_HAPUPASID`) %>% 
+  dplyr::full_join(odk_end %>% 
+                     dplyr::select(HHID,fieldworker,group,datetime_end,`E_SampleEnd-E24_notes`))
 
 ```
 
 # Import sums file names
-```{r import_cooking}
+```{r import_cooking,echo=FALSE}
 
 # UPAS data import and check
 sumsfilepath <- "~/Dropbox/World Bank CSCB Field Folder/Field Data/SUMS Data" 
@@ -89,7 +163,8 @@ file_list_sums <- list.files(sumsfilepath, pattern='.CSV|.csv', full.names = T,r
   as.data.frame() %>% 
   dplyr::rename(pathname=".") %>% 
   dplyr::mutate(pathname = as.character(pathname),
-                filename = file_path_sans_ext(basename(pathname))) %>% 
+                filename = file_path_sans_ext(basename(pathname)),
+                filesize_mb = file.size(pathname)/1e6) %>% 
   tidyr::separate(filename,c("HHID","fieldworker","stove","download"))
 
 kable(file_list_sums,caption = "Summary of SUMs files names, and parsing attempt","pipe")
@@ -97,18 +172,21 @@ kable(file_list_sums,caption = "Summary of SUMs files names, and parsing attempt
 
 
 # Save and send
-```{r sendemails}
+```{r sendemails,echo=FALSE}
 
 
 list_of_datasets <- list(
   "UPAS"=upas_header,
-  "sums" = file_list_sums)
+  "sums" = file_list_sums,
+  "odk_check" = odk_check,
+  "odk_sums_download_check" = odk_sums_download_check,
+  "odk_sums_install_check" = odk_sums_install_check)
 
 filename = paste0("~/Dropbox/World Bank CSCB Field Folder/Field Data/QA Reports/CSCB_QA_Report_",  Sys.Date(), ".xlsx")
 write.xlsx(list_of_datasets,file = filename)
 
-source('r_scripts/emailfun.R')
-emailfun(email,filename)
+# source('r_scripts/emailfun.R')
+# emailfun(email,filename)
 
 
 
