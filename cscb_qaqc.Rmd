@@ -175,6 +175,12 @@ file_list_sums <- list.files(sumsfilepath, pattern='.CSV|.csv', full.names = T,r
 kable(file_list_sums,caption = "Summary of SUMs files names, and parsing attempt","pipe")
 ```
 
+# Time tracker data import and save
+```{r timetracker}
+timetracker_data <- timetracker_import_fun()
+
+```
+
 
 # Save and send
 ```{r sendemails,echo=FALSE}
