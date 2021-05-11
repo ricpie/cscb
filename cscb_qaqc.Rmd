@@ -42,20 +42,26 @@ file_list_upas <- list.files(upasfilepath, pattern='.txt|.TXT', full.names = T,r
 
 file_list_upas = file_list_upas[sapply(file_list_upas, file.size) > 10000]
 
-upas_data = rbindlist(lapply(file_list_upas,read_upas),fill=TRUE) 
+upas_data = rbindlist(lapply(file_list_upas,read_upas),fill=TRUE)
 
 
 upas_header <- rbindlist(lapply(file_list_upas,read_upas_header)) %>% 
   as.data.frame() %>% 
   dplyr::arrange(UPASlogFilename,StartDateTimeUTC) %>% 
-  dplyr::mutate(file_start_date = as.Date(StartDateTimeUTC),
+  dplyr::mutate(filename = file_list_upas,
+                filename = basename(file_path_sans_ext(filename)),
+                file_start_date = as.Date(StartDateTimeUTC),
                 CartridgeID = toupper(CartridgeID),
-                StartDateTimeLocal = with_tz(StartDateTimeUTC, 
+                StartDateTimeLocal = with_tz(StartDateTimeUTC,
                                              tzone="Africa/Nairobi"),
                 date_start = date(StartDateTimeLocal)) %>%
+  dplyr::filter(!filename %like% "Pilot") %>% 
   dplyr::select(-UPASfirmware,-LifetimeSampleCount,-LifetimeSampleRuntime,-GPSUTCOffset,ProgrammedStartDelay,-AppLock,-AppVersion,
                 -StartOnNextPowerUp,-LogInterval,-LogFileMode,-file_start_date,-DutyCycleWindow,-GPSEnabled,-ProgrammedStartDelay,
-                -StartBatteryCharge,-EndBatteryCharge,-ShutdownMode,-SampledRuntime,-VolumetricFlowRate,-FlowOffset)
+                -StartBatteryCharge,-EndBatteryCharge,-ShutdownMode,-SampledRuntime,-VolumetricFlowRate,-FlowOffset) %>% 
+  tidyr::separate(filename,c("date_file","hhid","location","instrument_id"),sep = "_",extra = "warn",fill = "warn",remove = TRUE)
+
+
 
 kable(upas_header,"pipe",caption = "UPAS deployment summary")
 # dplyr::filter(date(StartDateTimeLocal) %in% date(field_log$excel_datetime_start) | 
