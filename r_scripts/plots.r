@@ -1,11 +1,29 @@
 #________________________________________________________
 # require libraries
-  library(tidyverse)
+library(tidyverse)
 #________________________________________________________
 
 #________________________________________________________
 # plot timeseries data (default by filename)
 # takes a data frame and a column name of variable to plot
+#________________________________________________________
+# plot timeseries data (default by filename)
+# takes a data frame and a column name of variable to plot
+field_timeseries_plot <- function(df, y_var, x_var, facet_var,color_var, marker_shape) {
+  
+  ggplot(df, aes_string(y = y_var, x = x_var, color = color_var,shape = marker_shape)) +
+    geom_point(alpha = 0.5) +
+    facet_wrap(~df[[facet_var]], ncol = 1, scales = "free") +
+    theme_minimal() +
+    theme(legend.position = "top") +
+    labs(y=bquote(''~C^o), x="") +
+    scale_x_datetime(date_breaks = "2 day",date_labels = "%e-%b") +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1,size=10)) 
+}
+#________________________________________________________
+
+
+
 timeseries_plot <- function(df, y_var, x_var, facet_var="HHID",size_var = "lpg_cooking") {
   
   ggplot(df, aes_string(y = y_var, x = x_var,size = size_var)) +
@@ -47,7 +65,7 @@ timeseries_plot_ambient <- function(df2,df, y_var, x_var, facet_var="HHID",color
 # plot timeseries data by a fill color
 # takes a data frame and a column name of variable to plot
 box_plot <- function(df, y_var, fill_var = "qc", x_var = "HHID", y_units = "units",title) {
-
+  
   ggplot(df, aes_string(y = y_var, x = x_var)) + #, fill = fill_var)) +
     geom_boxplot(alpha = 0.25) +
     geom_jitter(height = 0,width = 0.2,alpha = 0.2) +
@@ -59,7 +77,7 @@ box_plot <- function(df, y_var, fill_var = "qc", x_var = "HHID", y_units = "unit
     ylab(paste0(y_units)) +
     xlab(x_var) + 
     ggtitle(title)
-
+  
 }
 
 
@@ -87,7 +105,7 @@ box_plot_facet <- function(df, y_var, fill_var = "qc", facet_var = "pm_monitor_t
 #________________________________________________________
 # plot field data
 pointplot <- function(df, y_var, color_var = "qc", x_var = "HHID", y_units = "units") {
-
+  
   ggplot(df, aes_string(y = y_var, x = x_var, color = color_var)) +
     geom_point() +
     scale_fill_discrete(drop = FALSE) +
@@ -95,7 +113,7 @@ pointplot <- function(df, y_var, color_var = "qc", x_var = "HHID", y_units = "un
     theme(legend.position = "top") +
     ylab(paste0(y_var, " (", df[[1, y_units]], ")")) +
     xlab(x_var)
-
+  
 }
 
 
@@ -104,12 +122,12 @@ pointplot <- function(df, y_var, color_var = "qc", x_var = "HHID", y_units = "un
 plot_dot_line <- function(df, y_var, x_var) {
   
   m <- df %>%
-       dplyr::do(model = lm(paste(eval(y_var), "~", eval(x_var)), .)) %>%
-       dplyr::mutate(eqn = get_lm_eqn(model))
-
+    dplyr::do(model = lm(paste(eval(y_var), "~", eval(x_var)), .)) %>%
+    dplyr::mutate(eqn = get_lm_eqn(model))
+  
   eqn <- data.frame(eqn = unclass(m$eqn),
                     stove = m$stove)
-
+  
   ggplot(df, aes_string(x = x_var, y = y_var)) +
     geom_point(alpa = 0.2) +
     geom_smooth(method = "lm", formula = 'y ~ x',
@@ -127,12 +145,12 @@ plot_dot_line <- function(df, y_var, x_var) {
 ## plot dot plot with geom smooth
 
 plot_dot_line <- function(df, y_var, y_label, x_var = "firepower",
-                                x_label = "firepower (kW)", facet_1 = "var", plot_color = "HHID") {
-
+                          x_label = "firepower (kW)", facet_1 = "var", plot_color = "HHID") {
+  
   m <- df %>%
-       dplyr::group_by_(facet_1) %>%
-       dplyr::do(model = lm(paste(eval(y_var), "~", eval(x_var)), .)) %>%
-       dplyr::mutate(eqn = get_lm_eqn(model))
+    dplyr::group_by_(facet_1) %>%
+    dplyr::do(model = lm(paste(eval(y_var), "~", eval(x_var)), .)) %>%
+    dplyr::mutate(eqn = get_lm_eqn(model))
   
   eqn <- data.frame(eqn = unclass(m$eqn),
                     var = m$var)

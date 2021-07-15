@@ -231,7 +231,7 @@ simul_events_fun <- function(ok_cooking_events_padded){
 }
 
 #for each SUM data file, get cooking events.
-event_fun <- function(i,sumsarized_filtered){
+event_fun <- function(i,sumsarized_filtered,cooking_events){
   #Grab data from file i, and keep only the entries that are marked as cooking
   temp <- dplyr::filter(sumsarized_filtered,file_indices == i) %>%
     dplyr::filter(state == TRUE) %>% dplyr::filter(!duplicated(datetime)) 
@@ -298,15 +298,16 @@ event_fun <- function(i,sumsarized_filtered){
                                        group=as.factor(temp$group[breakstart]),
                                        region=as.factor(temp$region[breakstart]),
                                        HHID=as.factor(temp$HHID[breakstart]),
-                                       logger_id=factor(temp$logger_id[breakstart]),
+                                       logger_id=factor(temp$HHID[breakstart]),
                                        stove=factor(temp$stove[breakstart]),
                                        logging_duration_days = as.numeric(difftime(datetime_removal_temp,datetime_placed_temp,units = "days")),
                                        datetime_placed = datetime_placed_temp,
                                        datetime_removal = datetime_removal_temp,
+                                       mission_id = temp$mission_id[breakstart], 
                                        file_indices = temp$file_indices[breakstart], 
                                        filename = temp$filename[breakstart],
                                        fullsumsarizer_filename = temp$fullsumsarizer_filename[breakstart],
-                                       comments = temp$comments[1],
+                                       comments = "",
                                        use_flag=as.logical(rep(1,length(breakstart)[1])),
                                        qc_dates = qc_temp))
   } else{
@@ -321,15 +322,16 @@ event_fun <- function(i,sumsarized_filtered){
                                        group=as.factor(temp$group[1]),
                                        region=as.factor(temp$region[1]),
                                        HHID=as.factor(temp$HHID[1]), 
-                                       logger_id=factor(temp$logger_id[1]),
+                                       logger_id=factor(temp$HHID[1]),
                                        stove=factor(temp$stove[1]), 
                                        logging_duration_days = as.numeric(difftime(datetime_removal_temp,datetime_placed_temp,units = "days")),
                                        datetime_placed = datetime_placed_temp,
                                        datetime_removal = datetime_removal_temp,
+                                       mission_id = temp$mission_id[1], 
                                        file_indices = temp$file_indices[1], 
                                        filename = temp$filename[1],
                                        fullsumsarizer_filename = temp$fullsumsarizer_filename[1],
-                                       comments = temp$comments[1],
+                                       comments = "",
                                        qc_dates = qc_temp,
                                        use_flag=FALSE))
   }
@@ -337,12 +339,12 @@ event_fun <- function(i,sumsarized_filtered){
 }
 
 #Pad the data set to ensure that files without events are taken into account, and that days without events are properly accounted for in analyses.
-pad_fun <- function(i,ok_cooking_events_unfiltered){
+pad_fun <- function(i,ok_cooking_events_unfiltered,ok_cooking_events_padded){
   uniquers <- unique(ok_cooking_events_unfiltered$fullsumsarizer_filename)
   temp <- dplyr::filter(ok_cooking_events_unfiltered,uniquers[i]==fullsumsarizer_filename) %>%
     dplyr::arrange(start_time)
   
-  if (dim(temp)[1]>0) {    
+  if (dim(temp)[1]>0) { 
     # generate a time sequence with 1 day intervals to fill in
     # missing dates
     all.dates <- data.frame(dates = seq(temp$datetime_placed[1], temp$datetime_removal[1], by="day"),stringsAsFactors = FALSE) %>%
@@ -364,11 +366,11 @@ pad_fun <- function(i,ok_cooking_events_unfiltered){
     merged.data <- merge(all.dates.frame, temp, all=T) %>%
       tidyr::fill(filename,fullsumsarizer_filename,HHID,stove,logger_id,group,region,
                   stove_descriptions,logging_duration_days,datetime_placed,
-                  datetime_removal,units,comments,
+                  datetime_removal,units,comments,mission_id,
                   start_hour,.direction = c("up")) %>%
       tidyr::fill(filename,fullsumsarizer_filename,HHID,stove,logger_id,group,region,
                   stove_descriptions,logging_duration_days,datetime_placed,
-                  datetime_removal,units,comments,
+                  datetime_removal,units,comments,mission_id,
                   start_hour,.direction = c("down"))  %>%
       dplyr::mutate(use_flag = replace(use_flag, is.na(use_flag), FALSE)) 
     

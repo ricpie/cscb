@@ -70,16 +70,16 @@ fileCleanerTimeStamp <- function(filerun){
   
   
   #NA-replace data from disconnected values
-  datas$Value[datas$Value < -270] <- NA #dplyr::mutate(datas,Value = if_else(Value < 0,0,Value)) #Remove -270 data that sometimes appears due to disconnected Wellzions.
+  datas$Value[datas$Value <= -270] <- NA #dplyr::mutate(datas,Value = if_else(Value < 0,0,Value)) #Remove -270 data that sometimes appears due to disconnected Wellzions.
   
   #Look for inverted data, which may be the cae if the thermocouples are connected with the opposite polarity.  
   
   
-  #Flip if more than 1% of the data is negative
-  # if (quantile(datas$Value,.001) < 0) {
-  #   datas$Value <- 40 - datas$Value
-  # }
-
+  # Flip if more than 1% of the data is negative
+  if (quantile(datas$Value,.001,na.rm=T) < 0) {
+    datas$Value <- 40 - datas$Value
+  }
+  
   #Flip this file only. BAS_21035_4_DL1
   if (grepl('BAS_21035_4_DL1',filerun,fixed=TRUE)) {
     datas$Value <- 40 - datas$Value
@@ -112,6 +112,7 @@ fileCleanerTimeStamp <- function(filerun){
   
   # datas <- dplyr::mutate(datas,Value = if_else(Value < 0,quantile(Value, .05),Value)) #Remove -270 data that sometimes appears due to disconnected Wellzions.
   datas$Date.TimeBackup = datas$Date.Time
+  # datas$Date.Time = datas$Date.TimeBackup
   #If there are more unique values in DT1 than DT2, then the first value is days. This could be defeated if there is only one day of data. Would also not work if there are a lot of different formats with varying levels of leading zeros.
   newfilename = paste(dirname(filerun),'/Corrected Timestamps/',basename(filerun),sep="")
   if ((dashpresence) & (colonpresence==1) & DT1dash>DT2dash) { #D-M-Y hh:mm
@@ -124,7 +125,7 @@ fileCleanerTimeStamp <- function(filerun){
   } else if ((dashpresence) & (colonpresence==2) & DT3dash>DT2dash)  {  #y-m-d hh:mm:ss
     datas[,Date.Time:=ymd_hms(as.character(Date.Time))]
   } else if ((slashpresence) & (colonpresence==2) & DT1slash>=DT2slash)  {  #D/M/Y hh:mm:ss
-    datas[,Date.Time:=dmy_hms(as.character(Date.Time))]
+    datas[,Date.Time:=mdy_hms(as.character(Date.Time))]
   } else if ((slashpresence) & (colonpresence==1) & DT1slash>=DT2slash)  {  #D/M/Y hh:mm
     datas[,Date.Time:=dmy_hm(as.character(Date.Time))]
   } else if ((slashpresence) & (colonpresence==1) & DT2slash>DT1slash)  {  #M/D/Y hh:mm
@@ -137,7 +138,7 @@ fileCleanerTimeStamp <- function(filerun){
   headerrows <- data.frame(asd=matrix("", nrow = 19, ncol = 1))
   
   cat(paste(header$V1,headerrows$asd,headerrows$asd,sep=",",collapse="\n"), file=newfilename)
-   cat("\n", sep=",", file=newfilename,append=TRUE)
+  cat("\n", sep=",", file=newfilename,append=TRUE)
   # if there are a bunch of bad dates still, try to fix the rest.
   if(sum(is.na(datas$Date.Time))>100){
     a <- datas$Date.Time
@@ -146,11 +147,14 @@ fileCleanerTimeStamp <- function(filerun){
     datas$Date.Time <- a # Put it back in your dataframe
   }
   datas[,Date.TimeBackup:=NULL]
+  datas$Value[is.na(datas$Value)] <- -270 #dplyr::mutate(datas,Value = if_else(Value < 0,0,Value)) #Remove -270 data that sometimes appears due to disconnected Wellzions.
   datas <- datas[complete.cases(datas), ]
+  
+  datas$Date.Time = as.character(strftime(datas$Date.Time,"%m/%d/%y %I:%M:%S %p"))
   
   write.table(datas, newfilename, sep=",", append=TRUE, row.names=F, quote=F)
   
-
+  # month/day/year yy, HH:MM
   #Plot the data 
   plot_names <- gsub(".csv",".png",newfilename)
   

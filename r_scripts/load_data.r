@@ -20,19 +20,20 @@ load_sumsarized <- function(substitution_list){
   names(sub_list ) <- substitution_list
   sub_list <- as.list(sub_list, use.names=FALSE)
   
-  asdf <- lapply(list.files(paste0("../../SUMSARIZED", collapse=NULL),
+  asdf <- lapply(list.files(paste0("../SUMSARIZED", collapse=NULL),
                             pattern = ".csv",
                             full.names = TRUE,recursive = TRUE),
                  function(x)
                    readr::read_csv(x,
                                    skip = 1,
-                                   col_names = c("sumsarizer_filename", "datetime", "stove_temp", "state","datapoint_id","dataset_id"),
+                                   col_names = c("sumsarizer_filename", "datetime", "stove_temp", "state","mission_id","datapoint_id","dataset_id"),
                                    col_types =
                                      cols(
                                        sumsarizer_filename = col_character(),
                                        datetime = col_character(),
                                        stove_temp = col_double(),
                                        state = col_logical(),
+                                       mission_id = col_character(),
                                        datapoint_id = col_character(),
                                        dataset_id = col_character()
                                      ),
@@ -49,6 +50,7 @@ load_sumsarized <- function(substitution_list){
                    #                                    sapply(sumsarizer_filename, function(x) unlist(gregexpr('/',x,perl=TRUE))[1])+1,100)) %>% #For AfDB Nigeria only.
                    # dplyr::mutate(sumsarizer_filename = gsub("KE", "_KE", sumsarizer_filename,ignore.case = TRUE)) %>% # the line below does this, but general and with the names given in the main file.
                    dplyr::mutate(sumsarizer_filename = gsubfn(paste(names(sub_list),collapse="|"), sub_list,sumsarizer_filename[1],ignore.case = TRUE)) %>% #Make sure the underscores are placed before the stove type.#For AfDB Nigeria only.
+                   dplyr::mutate(sumsarizer_filename = gsub("-","_",sumsarizer_filename[1]))  %>%
                    dplyr::mutate(sumsarizer_filename = gsub(" ","_",sumsarizer_filename[1]))  %>%
                    dplyr::mutate(sumsarizer_filename = gsub("__","_",sumsarizer_filename[1])) %>%
                    dplyr::mutate(filename = substring(filename[1], sapply(filename[1], function(x) tail(unlist(gregexpr('/',x,perl=TRUE)),1)[1])+1, 100)) %>%
@@ -56,13 +58,16 @@ load_sumsarized <- function(substitution_list){
                    dplyr::mutate(filename = gsubfn(paste(names(sub_list),collapse="|"), sub_list,filename[1],ignore.case = TRUE)) %>%#Make sure the underscores are placed before the stove type.
                    dplyr::mutate(filename = gsub(" ","_",filename[1]))  %>%
                    dplyr::mutate(filename = gsub("__","_",filename[1])) %>%
-                   dplyr::mutate(filename = if_else(lengths(regmatches(filename[1], gregexpr("_", filename[1])))>3, substring(filename[1], 
-                                                                                                                              sapply(filename[1], function(x) tail(unlist(gregexpr('_',x,perl=TRUE)),4)[1])+1, 100),filename[1]))#If there are more than the three expected underscores, trim from the fourth from the last.
+                   dplyr::mutate(filename = if_else(lengths(regmatches(filename[1], gregexpr("_", filename[1])))>3,
+                                                    substring(filename[1], 
+                                                              sapply(filename[1], 
+                                                                     function(x) tail(unlist(gregexpr('_',x,perl=TRUE)),4)[1])+1, 100),
+                                                    filename[1])) #If there are more than the three expected underscores, trim from the fourth from the last.
                  
   ) %>%
     dplyr::bind_rows() 
   
- 
+  
 }
 
 
@@ -71,7 +76,7 @@ load_sumsarized <- function(substitution_list){
 #________________________________________________________
 
 load_meta_download <- function(xx){
-        
+  
   # Text names for the v1 version of the tracking sheet    
   # varname_text <- c("stove_type","datetime_removal","time_removal","datetime_download","logger_id",
   # "maxtemp","mintemp","filename","logger_new_id_number",
@@ -82,103 +87,103 @@ load_meta_download <- function(xx){
                     "time_removal","datetime_download","logger_id",
                     "maxtemp","mintemp","filename","logger_new_id_number",
                     "new_placement_on_stove","time_replaced","location")
-
+  
   variers <- c( paste('S1.',varname_text,sep=''),
                 paste('S2.',varname_text,sep=''),
                 paste('S3.',varname_text,sep=''),
                 paste('S4.',varname_text,sep=''))
   column_names <- c("HHID","deployment","enumerator","number_loggers_placed_home",
-    variers,
-    "amb.logged","amb.logger_id","amb.datetime_placed",
-    "amb.time_placed","amb.location","comments")
+                    variers,
+                    "amb.logged","amb.logger_id","amb.datetime_placed",
+                    "amb.time_placed","amb.location","comments")
   
   asdf<- read_excel(paste0("../../","SUMs Tracking Data","/",xx, collapse=NULL),
                     sheet = 'AllData',range = "A3:BN700",
                     col_names = column_names,
-          
-          col_types = c("text","text","text","numeric",
-                        "text","date","date","date","date","date","text",
-                        "numeric","numeric","text","text","text","date","text",
-                        "text","date","date","date","date","date","text",
-                        "numeric","numeric","text","text","text","date","text",
-                        "text","date","date","date","date","date","text",
-                        "numeric","numeric","text","text","text","date","text",
-                        "text","date","date","date","date","date","text",
-                        "numeric","numeric","text","text","text","date","text",
-                        "text","text","date",
-                        "date","text","text")
-                      )  %>%
-
+                    
+                    col_types = c("text","text","text","numeric",
+                                  "text","date","date","date","date","date","text",
+                                  "numeric","numeric","text","text","text","date","text",
+                                  "text","date","date","date","date","date","text",
+                                  "numeric","numeric","text","text","text","date","text",
+                                  "text","date","date","date","date","date","text",
+                                  "numeric","numeric","text","text","text","date","text",
+                                  "text","date","date","date","date","date","text",
+                                  "numeric","numeric","text","text","text","date","text",
+                                  "text","text","date",
+                                  "date","text","text")
+  )  %>%
     
-           # convert time to secs in day and fix file problems
-          dplyr::mutate(S1.datetime_placed =  as.POSIXct(paste(S1.datetime_placed, strftime(S1.time_placed,"%H:%M:%S")),
+    
+    # convert time to secs in day and fix file problems
+    dplyr::mutate(S1.datetime_placed =  as.POSIXct(paste(S1.datetime_placed, strftime(S1.time_placed,"%H:%M:%S")),
+                                                   format = "%Y-%m-%d %H:%M:%S",
+                                                   origin = "1970-01-01")) %>%
+    dplyr::mutate(S1.datetime_removal =  as.POSIXct(paste(S1.datetime_removal, strftime(S1.time_removal,"%H:%M:%S")),
                                                     format = "%Y-%m-%d %H:%M:%S",
                                                     origin = "1970-01-01")) %>%
-          dplyr::mutate(S1.datetime_removal =  as.POSIXct(paste(S1.datetime_removal, strftime(S1.time_removal,"%H:%M:%S")),
-                                                          format = "%Y-%m-%d %H:%M:%S",
-                                                          origin = "1970-01-01")) %>%
-          dplyr::mutate(S1.datetime_download =  as.POSIXct(paste(S1.datetime_removal, strftime(S1.datetime_download,"%H:%M:%S")),
-                                                         format = "%Y-%m-%d %H:%M:%S",
-                                                         origin = "1970-01-01")) %>%
-          dplyr::mutate(S2.datetime_placed =  as.POSIXct(paste(S2.datetime_placed, strftime(S2.time_placed,"%H:%M:%S")),
-                                                         format = "%Y-%m-%d %H:%M:%S",
-                                                         origin = "1970-01-01")) %>%
-          dplyr::mutate(S2.datetime_removal =  as.POSIXct(paste(S2.datetime_removal, strftime(S2.time_removal,"%H:%M:%S")),
-                                                        format = "%Y-%m-%d %H:%M:%S",
-                                                        origin = "1970-01-01")) %>%
-          dplyr::mutate(S2.datetime_download =  as.POSIXct(paste(S2.datetime_removal, strftime(S2.datetime_download,"%H:%M:%S")),
-                                                         format = "%Y-%m-%d %H:%M:%S",
-                                                         origin = "1970-01-01")) %>%
-          dplyr::mutate(S3.datetime_placed =  as.POSIXct(paste(S3.datetime_placed, strftime(S3.time_placed,"%H:%M:%S")),
-                                                         format = "%Y-%m-%d %H:%M:%S",
-                                                         origin = "1970-01-01")) %>%
-          dplyr::mutate(S3.datetime_removal =  as.POSIXct(paste(S3.datetime_removal, strftime(S3.time_removal,"%H:%M:%S")),
-                                                        format = "%Y-%m-%d %H:%M:%S",
-                                                        origin = "1970-01-01")) %>%
-          dplyr::mutate(S3.datetime_download =  as.POSIXct(paste(S3.datetime_removal, strftime(S3.datetime_download,"%H:%M:%S")),
-                                                         format = "%Y-%m-%d %H:%M:%S",
-                                                         origin = "1970-01-01")) %>%
-          dplyr::mutate(S4.datetime_placed =  as.POSIXct(paste(S4.datetime_placed, strftime(S4.time_placed,"%H:%M:%S")),
-                                                         format = "%Y-%m-%d %H:%M:%S",
-                                                         origin = "1970-01-01")) %>%
-          dplyr::mutate(S4.datetime_removal =  as.POSIXct(paste(S4.datetime_removal, strftime(S4.time_removal,"%H:%M:%S")),
-                                                        format = "%Y-%m-%d %H:%M:%S",
-                                                        origin = "1970-01-01")) %>%
-          dplyr::mutate(S4.datetime_download =  as.POSIXct(paste(S4.datetime_removal, strftime(S4.datetime_download,"%H:%M:%S")),
-                                                         format = "%Y-%m-%d %H:%M:%S",
+    dplyr::mutate(S1.datetime_download =  as.POSIXct(paste(S1.datetime_removal, strftime(S1.datetime_download,"%H:%M:%S")),
+                                                     format = "%Y-%m-%d %H:%M:%S",
+                                                     origin = "1970-01-01")) %>%
+    dplyr::mutate(S2.datetime_placed =  as.POSIXct(paste(S2.datetime_placed, strftime(S2.time_placed,"%H:%M:%S")),
+                                                   format = "%Y-%m-%d %H:%M:%S",
+                                                   origin = "1970-01-01")) %>%
+    dplyr::mutate(S2.datetime_removal =  as.POSIXct(paste(S2.datetime_removal, strftime(S2.time_removal,"%H:%M:%S")),
+                                                    format = "%Y-%m-%d %H:%M:%S",
                                                     origin = "1970-01-01")) %>%
-          dplyr::mutate(amb.datetime_placed =  as.POSIXct(paste(amb.datetime_placed, strftime(amb.time_placed,"%H:%M:%S")),
-                                                         format = "%Y-%m-%d %H:%M:%S",
-                                                         origin = "1970-01-01")) %>%
-          dplyr::mutate(amb.logged = if_else(grepl("N/A",amb.logged,ignore.case=TRUE),"NA","YES")) %>%
+    dplyr::mutate(S2.datetime_download =  as.POSIXct(paste(S2.datetime_removal, strftime(S2.datetime_download,"%H:%M:%S")),
+                                                     format = "%Y-%m-%d %H:%M:%S",
+                                                     origin = "1970-01-01")) %>%
+    dplyr::mutate(S3.datetime_placed =  as.POSIXct(paste(S3.datetime_placed, strftime(S3.time_placed,"%H:%M:%S")),
+                                                   format = "%Y-%m-%d %H:%M:%S",
+                                                   origin = "1970-01-01")) %>%
+    dplyr::mutate(S3.datetime_removal =  as.POSIXct(paste(S3.datetime_removal, strftime(S3.time_removal,"%H:%M:%S")),
+                                                    format = "%Y-%m-%d %H:%M:%S",
+                                                    origin = "1970-01-01")) %>%
+    dplyr::mutate(S3.datetime_download =  as.POSIXct(paste(S3.datetime_removal, strftime(S3.datetime_download,"%H:%M:%S")),
+                                                     format = "%Y-%m-%d %H:%M:%S",
+                                                     origin = "1970-01-01")) %>%
+    dplyr::mutate(S4.datetime_placed =  as.POSIXct(paste(S4.datetime_placed, strftime(S4.time_placed,"%H:%M:%S")),
+                                                   format = "%Y-%m-%d %H:%M:%S",
+                                                   origin = "1970-01-01")) %>%
+    dplyr::mutate(S4.datetime_removal =  as.POSIXct(paste(S4.datetime_removal, strftime(S4.time_removal,"%H:%M:%S")),
+                                                    format = "%Y-%m-%d %H:%M:%S",
+                                                    origin = "1970-01-01")) %>%
+    dplyr::mutate(S4.datetime_download =  as.POSIXct(paste(S4.datetime_removal, strftime(S4.datetime_download,"%H:%M:%S")),
+                                                     format = "%Y-%m-%d %H:%M:%S",
+                                                     origin = "1970-01-01")) %>%
+    dplyr::mutate(amb.datetime_placed =  as.POSIXct(paste(amb.datetime_placed, strftime(amb.time_placed,"%H:%M:%S")),
+                                                    format = "%Y-%m-%d %H:%M:%S",
+                                                    origin = "1970-01-01")) %>%
+    dplyr::mutate(amb.logged = if_else(grepl("N/A",amb.logged,ignore.case=TRUE),"NA","YES")) %>%
     dplyr::filter(!is.na(number_loggers_placed_home)) %>%
     dplyr::filter(!is.na(deployment)) %>%
     dplyr::filter(deployment!=0) %>%
     as.data.frame()
-        
-
-long_metadata <-  reshape(asdf, direction='long', 
-        varying=variers, 
-        timevar='stove_use_category',
-        v.names=varname_text,
-        times=c('S1','S2','S3','S4'),
-        idvar=c('HHID','deployment')) %>%
-        dplyr::select(-new_placement_on_stove,-time_replaced,-location)
   
-#Column orders changed, can't figure out why...manually correcting them.
-colnames(long_metadata) <- c("HHID",                        "deployment"     ,  "enumerator" ,                
-                             "number_loggers_placed_home", "amb.logged"     ,   "amb.logger_id",         
-                             "amb.datetime_placed"       ,  "amb.time_placed",   "amb.location",               
-                             "comments"                  ,  "stove_use_category"           ,   "datetime_download"  ,               
-                             "datetime_placed"          ,  "datetime_removal"           ,   "filename",          
-                             "location"            ,  "logger_id"            ,   "un2"    ,               
-                             "maxtemp"                  ,  "mintemp",   "un5",     
-                             "stove_type")
-
-
-#time_removal datetime_removal stove_type maxtemp mintemp logger_new_id_number new_placement_on_stove
-#Need to add these back in when ready.
-long_metadata <- dplyr::select(long_metadata,-un5,-un2,-amb.time_placed)  
+  
+  long_metadata <-  reshape(asdf, direction='long', 
+                            varying=variers, 
+                            timevar='stove_use_category',
+                            v.names=varname_text,
+                            times=c('S1','S2','S3','S4'),
+                            idvar=c('HHID','deployment')) %>%
+    dplyr::select(-new_placement_on_stove,-time_replaced,-location)
+  
+  #Column orders changed, can't figure out why...manually correcting them.
+  colnames(long_metadata) <- c("HHID",                        "deployment"     ,  "enumerator" ,                
+                               "number_loggers_placed_home", "amb.logged"     ,   "amb.logger_id",         
+                               "amb.datetime_placed"       ,  "amb.time_placed",   "amb.location",               
+                               "comments"                  ,  "stove_use_category"           ,   "datetime_download"  ,               
+                               "datetime_placed"          ,  "datetime_removal"           ,   "filename",          
+                               "location"            ,  "logger_id"            ,   "un2"    ,               
+                               "maxtemp"                  ,  "mintemp",   "un5",     
+                               "stove_type")
+  
+  
+  #time_removal datetime_removal stove_type maxtemp mintemp logger_new_id_number new_placement_on_stove
+  #Need to add these back in when ready.
+  long_metadata <- dplyr::select(long_metadata,-un5,-un2,-amb.time_placed)  
   
 }
 
@@ -189,7 +194,7 @@ long_metadata <- dplyr::select(long_metadata,-un5,-un2,-amb.time_placed)
 #________________________________________________________
 
 load_meta_download_v2 <- function(path_tracking_sheet){
-
+  
   # Text names for the v2 version of the tracking sheet
   varname_text <- c("placement_change","logger_id","stove_type","location_description","photo_yn","datetime_launched",
                     "time_launched","datetime_placed","time_placed","notes_placement","datetime_removal",
@@ -256,7 +261,7 @@ load_meta_download_v2 <- function(path_tracking_sheet){
                             v.names=varname_text,
                             times=c('S1','S2','S3','S4'),
                             idvar=c('HHID','deployment'))
-    
+  
   
   #Column orders changed, can't figure out why...manually correcting them.
   colnames(long_metadata) <- c("HHID","phone","hh_contact","enumerator","deployment","number_loggers_placed_home",

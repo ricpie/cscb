@@ -1,6 +1,6 @@
 ---
 title: "cscb_qaqc"
-knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = paste0(substr(inputFile,1,nchar(inputFile)-4),Sys.Date(),'.html')) })
+knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = paste0('Results',substr(inputFile,1,nchar(inputFile)-4),Sys.Date(),'.html')) })
 
 output: 
   html_document:
@@ -23,6 +23,7 @@ local_tz = 'Africa/Nairobi'
 source('r_scripts/load.R') #libraries
 source('r_scripts/UPAS_functions.R') #functions to clean, plot, summarize
 source('r_scripts/timetracker_import.R') 
+timetracker_data = timetracker_import_fun()
 
 
 ```
@@ -100,7 +101,6 @@ odk_sums_install_check <- odk_sums_install %>%
   dplyr::select("HHID","fieldworker","group","datetimeinstall",
                 "ABGvisit1gpsLatitude","ABGvisit1gpsLongitude",
                 "Status","B1SUMstove","B3SUMID")
-
 
 
 
@@ -184,7 +184,29 @@ kable(file_list_sums,caption = "Summary of SUMs files names, and parsing attempt
 
 # Time tracker data import and save
 ```{r timetracker}
-timetracker_data <- timetracker_import_fun()
+
+#Plot the time series
+# timetracker_data_selected = timetracker_data %>% dplyr::filter(HHID == "12_DA_CON")
+
+plot_tt_fun <- function(timetracker_data_selected){
+  
+  HHIDselected <- timetracker_data_selected$HHID[1]
+  
+  tt_plot <- timetracker_data_selected %>% 
+    ggplot() +  
+    # geom_segment(aes(y=activity, yend=activity, x=min(startTime),
+    #                  xend=max(endTime)), color="#b2b2b2", size=0.15) %>% 
+    geom_dumbbell(aes(y=activity, x=startTime, xend=endTime),
+                  size=1.5, color="#b2b2b2", size_x=3, size_xend = 3)+
+    ggtitle(HHIDselected)
+  # geom_segment(aes(y=startTime, yend=endTime, x=0, xend=.5), color="#b2b2b2", size=0.15)
+  
+  print(tt_plot)
+}
+
+as.data.frame(timetracker_data) %>%
+  dplyr::group_by(HHID) %>%
+  dplyr::do(f=plot_tt_fun(.))
 
 ```
 
@@ -205,9 +227,6 @@ write.xlsx(list_of_datasets,file = filename)
 
 # source('r_scripts/emailfun.R')
 # emailfun(email,filename)
-
-
-
 
 
 ```
