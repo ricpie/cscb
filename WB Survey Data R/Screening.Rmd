@@ -1,0 +1,131 @@
+---
+title: "Screening"
+output: 
+   
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: false
+    number_sections: true
+    highlight: pygments 
+    theme: cosmo
+    code_folding: hide
+    self_contained: no
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+source("load.R")
+```
+
+```{r load-data}
+control <- read.csv("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data/Screening data/To recreate screening analysis/WBCSCB_Sistema_CONT_Selection.csv")
+int <- read.csv("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/Screening data/To recreate screening analysis/WBCSCB_Sistema_INT_Selection.csv")
+```
+
+```{r lsm}
+# 19 questions in LSM
+lsm_int <-  select(int, starts_with("Screening.A"))[,c(1, 17:37)]
+lsm_int <- lsm_int %>% select(!ends_with("other")) %>% mutate(across(!Screening.A1_HHID, as.factor))
+
+lsm_int <- lsm_int %>% mutate(
+  Screening.A12_kitchensink_points = case_when(Screening.A12_kitchensink ==1 ~ 26,
+                                               TRUE ~ 0),
+  Screening.A13_typehouse_points = case_when(Screening.A13_typehouse == 1 ~ 17,
+                                             Screening.A13_typehouse == 2 ~ 34, 
+                                             Screening.A13_typehouse == 3 ~ 51,
+                                             Screening.A13_typehouse == 4 ~ 68,
+                                             Screening.A13_typehouse == 5 ~ 85,
+                                             TRUE ~ 0),
+  Screening.A14_mobilephone_points = case_when(Screening.A14_mobilephone == 1 ~26,
+                                               TRUE ~0),
+  Screening.A15_microwaveoven_points = case_when(Screening.A15_microwaveoven ==1 ~ 57,
+                                                 TRUE ~ 0),
+  Screening.A16_education_points = case_when(Screening.A16_education ==1 ~6,
+                                             Screening.A16_education ==2 ~12,
+                                             Screening.A16_education ==3 ~18,
+                                             Screening.A16_education ==4 ~24,
+                                             Screening.A16_education ==5 ~30,
+                                             Screening.A16_education ==6 ~36,
+                                             Screening.A16_education ==7 ~42,
+                                             Screening.A16_education ==8 ~48,
+                                             TRUE ~ 0),
+  Screening.A17_refrigerator_points = case_when(Screening.A17_refrigerator ==1 ~31,
+                                                TRUE ~0),
+  Screening.A18_TV_points = case_when(Screening.A18_TV ==1 ~ 16,
+                                      TRUE ~0),
+  Screening.A19_electricstove_points = case_when(Screening.A19_electricstove == 1 ~ 28,
+                                                 TRUE ~0),
+  Screening.A20_vacuum_points = case_when(Screening.A20_vacuum ==1 ~ 89,
+                                          TRUE ~0),
+  Screening.A21_cars_points = case_when(Screening.A21_cars ==1 ~ 26,
+                                        Screening.A21_cars >=2 ~ 52,
+                                        TRUE ~0),
+  Screening.A22_colourTV_points = case_when(Screening.A22_colourTV == 1 ~ 21,
+                                            TRUE ~0),
+  Screening.A23_freezer_points = case_when(Screening.A23_freezer == 1 ~ 52,
+                                           TRUE ~0),
+ 
+  
+  Screening.A24_iron_points = case_when(Screening.A24_iron == 1 ~ 17,
+                                           TRUE ~0),
+  Screening.A25_newspaper_points = case_when(Screening.A25_newspaper == 1 ~ 14,
+                                           TRUE ~0),
+  Screening.A26_camera_points = case_when(Screening.A26_camera == 1 ~ 24,
+                                           TRUE ~0),
+  Screening.A27_telephone_points = case_when(Screening.A27_telephone == 1 ~ 35,
+                                           TRUE ~0),
+  Screening.A28_video_points = case_when(Screening.A28_video == 1 ~ 31,
+                                           TRUE ~0),
+  Screening.A29_music_points = case_when(Screening.A29_music ==1 ~26,
+                                         TRUE ~0),
+  Screening.A30_internet_points = case_when(Screening.A30_internet ==1 ~17,
+                                         TRUE ~0))
+
+lsm_int <- lsm_int %>% mutate(lsm = rowSums(select(lsm_int, Screening.A12_kitchensink_points:Screening.A30_internet_points)) - 32) # add all points and subtract 32
+
+
+
+```
+
+
+Intervention Screening LSM summary
+```{r lsm-summary-int}
+summary(lsm_int$lsm)
+quantile(lsm_int$lsm, probs = seq(0, 1, 0.05))
+boxplot(lsm_int$lsm)
+```
+
+Control Screening LSM summary
+```{r lsm-summary-cont}
+summary(control$B_Section_2.lsm)
+boxplot(control$B_Section_2.lsm)
+```
+
+
+Screening summary:
+```{r}
+# variables of interest: hhid, land (own or rent), lsm
+
+int_select <- select(int, Screening.A1_HHID, Screening.A10_landown, Screening.A11_landrent)
+int_select <- full_join(int_select, select(lsm_int, Screening.A1_HHID, lsm))
+
+names(int_select) <- gsub(".*_","",names(int_select))
+int_select$group <- "intervention"
+int_select <- mutate(int_select, across(landown:landrent, as.numeric)) # some of these values are entered as dates??? Makes no sense
+
+cont_select <- select(control, B_Section_2.lsm, B_Section_2.A13_landown, B_Section_2.A14_landrent) # control doesn't have HHIDs... don't know how many of these actually were enrolled - but close to all of them? 
+
+names(cont_select) <- gsub(".*_","",names(cont_select))
+names(cont_select) <- gsub(".*\\.","",names(cont_select))
+cont_select$HHID <- paste0("HHID_CONT_", rownames(cont_select))
+cont_select$group <- "control"
+
+screening <- full_join(int_select, cont_select)
+t.test(lsm ~ group, data = screening)
+
+write.csv(screening, file = "screening_lsm_wb.csv")
+```

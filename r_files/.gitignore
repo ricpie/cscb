@@ -4,3 +4,18 @@ ok_cooking_events.RDS
 ok_cooking_events_padded.RDS
 sumsarized.RDS
 sumsarized_filtered.RDS
+*.csv
+*.pdf
+*.xls*
+*.doc*
+*.od*
+*.html
+# Ignore images
+*.jp*g
+*.png
+*.tif*
+# Ignore RStudio project files
+.Rproj.user
+.Rhistory
+# Ignore mac nonsense
+.DS_Store
