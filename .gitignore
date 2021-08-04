@@ -40,9 +40,14 @@ vignettes/*.pdf
 emailfun.R
 figures/
 QA_Reports/
+<<<<<<< HEAD
 *html
 
 
+=======
+
+#files
+*.csv
 *.pdf
 *.xls*
 *.doc*
@@ -55,5 +60,3 @@ QA_Reports/
 # Ignore RStudio project files
 .Rproj.user
 .Rhistory
-# Ignore mac nonsense
-.DS_Store
