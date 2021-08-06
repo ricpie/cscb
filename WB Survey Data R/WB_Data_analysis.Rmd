@@ -50,11 +50,11 @@ survey <- mutate(survey, group = case_when(group == "intervention" ~"Customer",
 
 filter(survey, HHID == "03_DA_CON") # there are two entries here - the one with age 59 is Virginia Wajobi and is being assigned a new HHID, 59_DA_CON
 
-filter(survey, HHID == "01_DA_IN")  # there are two entries here - the one with age 45 is a test entry, delete it
+# filter(survey, HHID == "01_DA_IN")  # there are two entries here - the one with age 45 is a test entry, delete it
 
 survey$HHID[survey$HHID == "03_DA_CON" & survey$age == 59] <- "02_SW_CON"
 
-survey <- filter(survey, !(HHID == "01_DA_IN" & age == 45))
+# survey <- filter(survey, !(HHID == "01_DA_IN" & age == 45))
 
 # sums
 sums_files <- list.files(path = paste0(data_path),pattern = '.csv',full.names = TRUE) %>%
@@ -63,24 +63,21 @@ sums_files <- list.files(path = paste0(data_path),pattern = '.csv',full.names = 
 sums <- read.csv(sums_files[which.max(file.mtime(sums_files))])
 
 
-# missing water heating frequency (first few days of survey, the frequency was not collected)
-missing_water <- read_excel("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/WB Survey Data R/Analytic Dataset/missing_water_HHID.xlsx")
-# "15_DA_IN" "13_DA_IN" "37_DA_IN" "10_MN_IN" "12_MN_IN" "49_DA_IN" "15_MN_IN" "21_SW_IN" "25_MN_IN"
-#  "10_DA_IN" "51_DA_IN" "36_DA_IN" "18_BN_IN" "21_JK_IN" "53_DA_IN" "17_MN_IN" "18_MN_IN" "41_DA_IN"
-# "05_MN_IN" "30_DA_IN" "11_BN_IN" "22_SW_IN" "22_JK_IN" "23_SW_IN" "50_DA_IN" "14_BN_IN" "12_DA_IN"
-# "19_DA_IN" "09_MN_IN" "33_DA_IN" "16_DA_IN" "18_DA_IN" "17_BN_IN" "35_DA_IN"
+# missing water heating frequency (the frequency was not collected)
+#12_DA_IN, 15_DA_IN, 13_DA_IN, 37_DA_IN, 10_MN_IN, 12_MN_IN, 49_DA_IN, 15_MN_IN, 21_SW_IN, #25_MN_IN, 10_DA_IN, 51_DA_IN, 36_DA_IN, 18_BN_IN, 21_JK_IN, 53_DA_IN, 17_MN_IN
 
-# Set cooking times to NA if water heating time was not collected
-survey$cooking_all_calc_minday[survey$HHID %in% missing_water$HHID] <-NA
-survey$tending_all_calc_minday[survey$HHID %in% missing_water$HHID] <-NA
-survey$stoveon_all_calc_minday[survey$HHID %in% missing_water$HHID] <-NA
+missing_water <- c("12_DA_IN", "15_DA_IN", "13_DA_IN", "37_DA_IN", "10_MN_IN", "12_MN_IN", "49_DA_IN", "15_MN_IN", "21_SW_IN", "25_MN_IN", "10_DA_IN", "51_DA_IN", "36_DA_IN", "18_BN_IN", "21_JK_IN", "53_DA_IN", "17_MN_IN")
 
-survey <- rename(survey, prepfuel_minday = prepfuel_minsweek)              
+# (not needed) Set cooking times to NA if water heating time was not collected
+# survey$cooking_all_calc_minday[survey$HHID %in% missing_water] <-NA
+#survey$tending_all_calc_minday[survey$HHID %in% missing_water$HHID] <-NA
+#survey$stoveon_all_calc_minday[survey$HHID %in% missing_water$HHID] <-NA
+
 
 complete <- left_join(survey, sums, by = "HHID")
 
 complete <- mutate(complete, 
-                   across(c(marital_status, main_income, primary_stove, secondary_stove, education), as.factor), across(c(effort_purchase, effort_collect, effort_prepare), as.numeric), fuel_timesavings_hoursweek = as.numeric(fuel_timesavings_hoursweek))
+                   across(c(marital_status, main_income, primary_stove, secondary_stove, education, drudgery_yn, task_mostenjoyed, task_mosttime, task_mostdrudgerous, agency_over_time, task_drudgerous2, task_drugerous3, fuelunavailable_yn, fuelunavailable_fuels), as.factor), across(c(effort_purchase, effort_collect, effort_prepare), as.numeric), fuel_timesavings_hoursweek = as.numeric(fuel_timesavings_hoursweek))
 
 ```
 
@@ -100,7 +97,7 @@ complete <- mutate(complete,
 # LSM data (from screening, not exactly aligned with participants)
 ```{r stats-tests-screening, results = "asis"}
 lsm_table <-tableby(group ~ lsm, data = screening)
-print(summary(lsm_table, digits= 1), pfootnote = TRUE)
+print(summary(lsm_table, digits= 0), pfootnote = TRUE)
 
 
 ```
@@ -118,18 +115,32 @@ marital_codes <- filter(codes, list.name == "maritalstatus")
 ed_codes <- filter(codes, list.name == "education")
 income_codes <- filter(codes, list.name== "mainincome")
 stove_codes <- filter(codes, list.name == "stoves")
+fuel_codes <- filter(codes, list.name == "fuels2")
+yesno_codes <- filter(codes, list.name == "yesno")
+task_codes <- filter(codes, list.name == "householdactivities") 
+# add picking tea leaves as #12
+tea <- data.frame(list.name = "householdactivities", name = 12, caption..english = "Picking tea leaves")
+task_codes <- rbind(task_codes, tea) %>% arrange(name)
+other <- data.frame(list.name = "householdactivities", name = "other", caption..english = "Other")
+task_codes <- rbind(task_codes, other)
 
 complete2 <- mutate(complete, marital_status = factor(marital_status, levels =as.list(marital_codes$name), labels = as.list(marital_codes$caption..english)), 
                     education = factor(education, levels = as.list(ed_codes$name), labels = as.list(ed_codes$caption..english)), 
                     main_income = factor(main_income, levels = c(1,2,4,5,6, "other"), labels = c("Selling produce from own farm such as crops and/or milk", "Working for money on other people's farms", "Casual labor, i.e. construction","Salaried work, i.e. teaching, nursing" ,"Own business, i.e. shop owner, taxi driver", "other")),
                     primary_stove = factor(primary_stove, levels = 1:13, labels =as.list(stove_codes$caption..english) ),
-                    secondary_stove = factor(secondary_stove, levels = 1:13, labels =as.list(stove_codes$caption..english) ))
+                    secondary_stove = factor(secondary_stove, levels = 1:13, labels =as.list(stove_codes$caption..english)),
+                    drudgery_yn = factor(drudgery_yn, levels = as.list(yesno_codes$name), labels = as.list(yesno_codes$caption..english)),
+                    across(c(task_mostenjoyed, task_mosttime, task_mostdrudgerous, task_drudgerous2, task_drugerous3), factor, levels = as.list(task_codes$name), labels = as.list(task_codes$caption..english)))
+                    
+                                        
 
 
 # drop unused levels
-complete2 <- mutate(complete2, across(c(marital_status, education, main_income, primary_stove, secondary_stove), droplevels))
+complete2 <- mutate(complete2, across(c(marital_status, education, main_income, primary_stove, secondary_stove, task_mostenjoyed, task_mosttime, task_mostdrudgerous, task_drudgerous2, task_drugerous3), droplevels))
 
 complete <- complete2
+
+
                     
 ```
 
@@ -137,7 +148,7 @@ complete <- complete2
 
 ``` {r stats-tests-survey, results = "asis"}
 
-complete_table <- tableby(group ~ anova(age) + chisq(marital_status) + chisq(education) + chisq(main_income) + chisq(primary_stove) + chisq(secondary_stove) + anova(cooking_all_calc_minday) + anova(tending_all_calc_minday) + anova(stoveon_all_calc_minday) + anova(cooking_meals_calc_minday) + anova(tending_meals_calc_minday) + anova(stoveon_meals_calc_minday)+ wt(busy_scale) +  wt(cooking_enjoy_scale) + wt(cooking_effort_scale)+ wt(effort_purchase) + wt(effort_collect) + wt(effort_prepare) + anova(collecting_minday) + anova(prepfuel_minday)+ anova(hoursweek_income) + anova(hoursweek_producinggoods) + anova(hoursweek_leisure) + anova(events_per_day) + anova(minutes_per_day_stove_hhid), data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"))
+complete_table <- tableby(group ~ anova(age) + chisq(marital_status) + chisq(education) + chisq(main_income) + chisq(primary_stove) + chisq(secondary_stove) + anova(cooking_all_calc_minday) + anova(tending_all_calc_minday) + anova(stoveon_all_calc_minday) + anova(cooking_meals_calc_minday) + anova(tending_meals_calc_minday) + anova(stoveon_meals_calc_minday)+ wt(busy_scale) +  wt(cooking_enjoy_scale) + wt(cooking_effort_scale)+ wt(effort_purchase) + wt(effort_collect) + wt(effort_prepare) + anova(collecting_minday) + anova(prepfuel_minsday)+ anova(hoursweek_income) + anova(hoursweek_producinggoods) + anova(hoursweek_leisure) + anova(events_per_day) + anova(minutes_per_day_stove_hhid), data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"))
 
 demog_table <- tableby(group ~ anova(age) + chisq(marital_status) + chisq(education) + chisq(main_income) + chisq(primary_stove) + chisq(secondary_stove),data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"))
 
@@ -145,13 +156,20 @@ labels(demog_table) <- c(age = "Age (years)", marital_status = "Marital Status",
 
 print(summary(demog_table,digits = 1, pfootnote = TRUE))
 
-cooking_table <- tableby(group ~   anova(cooking_meals_calc_minday) + anova(tending_meals_calc_minday) + anova(stoveon_meals_calc_minday)+ anova(cooking_all_calc_minday) + anova(tending_all_calc_minday) + anova(stoveon_all_calc_minday) + anova(collecting_minday) + anova(prepfuel_minday), data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"))
+cooking_table <- tableby(group ~   anova(cooking_meals_calc_minday) + anova(tending_meals_calc_minday) + anova(stoveon_meals_calc_minday)+ anova(cooking_all_calc_minday) + anova(tending_all_calc_minday) + anova(stoveon_all_calc_minday) + anova(collecting_minday) + anova(prepfuel_minsday), data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"))
                          
                             
-labels(cooking_table) <- c(cooking_all_calc_minday = "Total Cooking Time (minutes/day)", tending_all_calc_minday = "Attended Cooking Time (minutes/day)", stoveon_calc_minday = "Time with Pot on Stove (minutes/day)", collecting_minday = "Woodfuel Collection Time (minutes/day)", prepfuel_minday = "Time Preparing Fuel (minutes/day)",  stoveon_all_calc_minday = "Stove On Time (minutes/day)", cooking_meals_calc_minday = "Cooking Time, Meals only (minutes/day)", tending_meals_calc_minday = "Attended Cooking Time, Meals only (minutes/day)",  stoveon_meals_calc_minday = "Stove On Time, Meals only (minutes-day)")
+labels(cooking_table) <- c(cooking_all_calc_minday = "Total Cooking Time (minutes/day)", tending_all_calc_minday = "Attended Cooking Time (minutes/day)", stoveon_calc_minday = "Time with Pot on Stove (minutes/day)", collecting_minday = "Woodfuel Collection Time (minutes/day)", prepfuel_minsday = "Time Preparing Fuel (minutes/day)",  stoveon_all_calc_minday = "Stove On Time (minutes/day)", cooking_meals_calc_minday = "Cooking Time, Meals only (minutes/day)", tending_meals_calc_minday = "Attended Cooking Time, Meals only (minutes/day)",  stoveon_meals_calc_minday = "Stove On Time, Meals only (minutes-day)")
 
-print(summary(cooking_table,digits = 1, pfootnote = TRUE))
+print(summary(cooking_table,digits = 0, pfootnote = TRUE))
 
+# Taking out N and making the table smaller
+cooking_table <- tableby(group ~ anova(cooking_all_calc_minday) + anova(tending_all_calc_minday) + anova(stoveon_all_calc_minday) + anova(collecting_minday) + anova(prepfuel_minsday), data = complete, total = FALSE, numeric.stats = c("meansd", "range"))
+                         
+                            
+labels(cooking_table) <- c(cooking_all_calc_minday = "Total Cooking Time (minutes/day)", tending_all_calc_minday = "Attended Cooking Time (minutes/day)", stoveon_calc_minday = "Time with Pot on Stove (minutes/day)", collecting_minday = "Woodfuel Collection Time (minutes/day)", prepfuel_minsday = "Time Preparing Fuel (minutes/day)",  stoveon_all_calc_minday = "Stove On Time (minutes/day)", cooking_meals_calc_minday = "Cooking Time, Meals only (minutes/day)", tending_meals_calc_minday = "Attended Cooking Time, Meals only (minutes/day)",  stoveon_meals_calc_minday = "Stove On Time, Meals only (minutes-day)")
+
+print(summary(cooking_table,digits = 0, pfootnote = TRUE))
 
 perception_table <- tableby(group ~ wt(busy_scale) +  wt(cooking_enjoy_scale) + wt(cooking_effort_scale)+ wt(effort_purchase) + wt(effort_collect) + wt(effort_prepare), data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"))
 
@@ -159,7 +177,7 @@ labels(perception_table) = c(busy_scale = "Busy Scale", cooking_enjoy_scale = "C
 
 print(summary(perception_table,digits = 1, pfootnote = TRUE))
   
-productive_table <- tableby(group ~ anova(hoursweek_income) + anova(hoursweek_producinggoods) + anova(hoursweek_leisure), data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"))
+productive_table <- tableby(group ~ anova(hoursweek_income) + anova(hoursweek_producinggoods) + anova(hoursweek_leisure), data = complete, total = FALSE, numeric.stats = c("meansd", "range")) # table is complete so taking out N
 
 labels(productive_table) = c(hoursweek_income = "Income Producing Activities (hours/week)", hoursweek_producinggoods = "Producing Goods would otherwise buy (hours/week)", hoursweek_leisure = "Leisure and Rest (hours/week)" )
 
@@ -169,9 +187,23 @@ print(summary(productive_table,digits = 1, pfootnote = TRUE))
 sums_subset <- filter(complete, !is.na(events_per_day))
 sums_table <- tableby(group ~  anova(events_per_day) + anova(minutes_per_day_stove_hhid)  + anova(cooking_all_calc_minday) + anova(stoveon_all_calc_minday),  data = sums_subset, total = FALSE, numeric.stats = c("meansd", "range", "N"))
 
-labels(sums_table)= c(events_per_day = "Cooking Events per Day (via SUMs)", minutes_per_day_stove_hhid = "Total Cooking Time (via SUMs, minutes/day)", cooking_all_calc_minday = "Total Cooking Time (via survey, hh with SUMs, minutes/day)", stoveon_all_calc_minday = "Stove On Time (via survey, hh with SUMs, minutes/day)")
+labels(sums_table)= c(events_per_day = "Stove use Events per Day (via SUMs)", minutes_per_day_stove_hhid = "Total Stove use Time (via SUMs, minutes/day)", cooking_all_calc_minday = "Total Cooking Time (via survey, hh with SUMs, minutes/day)", stoveon_all_calc_minday = "Stove On Time (via survey, hh with SUMs, minutes/day)")
 
 print(summary(sums_table,digits = 1, pfootnote = TRUE))
+
+# Taking out N
+sums_table <- tableby(group ~  anova(events_per_day) + anova(minutes_per_day_stove_hhid)  + anova(cooking_all_calc_minday) + anova(stoveon_all_calc_minday),  data = sums_subset, total = FALSE, numeric.stats = c("meansd", "range"))
+
+labels(sums_table)= c(events_per_day = "Stove use Events per Day (via SUMs)", minutes_per_day_stove_hhid = "Total Stove use Time (via SUMs, minutes/day)", cooking_all_calc_minday = "Total Cooking Time (via survey, hh with SUMs, minutes/day)", stoveon_all_calc_minday = "Stove On Time (via survey, hh with SUMs, minutes/day)")
+
+print(summary(sums_table,digits = 1, pfootnote = TRUE))
+
+# drudgery
+drudgery_table <- tableby(group ~ drudgery_yn + drudgery_hoursweek, data = complete, total = FALSE, numeric.stats = c("meansd", "range")) # table is complete so taking out N
+
+
+labels(drudgery_table)= c(drudgery_yn = "Any Drudgerous Tasks", drudgery_hoursweek = "Hours per week on Drudgerous Tasks")
+print(summary(drudgery_table,digits = 1, pfootnote = TRUE))
 
 ```
 
@@ -204,6 +236,28 @@ dup_rows
 
 ``` {r plots}
 
+
+cooking_related <- select(complete, group, cooking_all_calc_minday, tending_all_calc_minday, stoveon_all_calc_minday,        cooking_meals_calc_minday,collecting_minday, prepfuel_minsday) %>% mutate(cook_collect_prep = cooking_all_calc_minday + collecting_minday + prepfuel_minsday) %>% group_by(group) %>% summarise(across(c(cook_collect_prep, cooking_all_calc_minday, collecting_minday, prepfuel_minsday), mean, na.rm = TRUE))
+
+cooking_related_long <- select(cooking_related, group, cooking_all_calc_minday, collecting_minday, prepfuel_minsday)  %>% pivot_longer(!group, names_to = "variable", values_to = "count")
+
+
+ c <- ggplot(cooking_related_long)
+c <- c + geom_col(aes(x = group, y = count, fill = variable)) +
+  ylab("Minutes per Day") +
+  xlab("") +
+  scale_fill_manual(values=my_colors, 
+                       name="Type of Activity",
+                       breaks=c("cooking_all_calc_minday", "collecting_minday", "prepfuel_minsday"),
+                       labels=c("Cooking", "Collecting Woodfuel", "Preparing Woodfuel")) +
+  geom_text(data = filter(cooking_related_long, variable == "cooking_all_calc_minday"), aes(x = group, y = count-10, label = round(count))) +
+  geom_text(data = filter(cooking_related_long, variable == "collecting_minday"), aes(x = group, y = c(205, 255), label = round(count))) +
+  geom_text(data = filter(cooking_related_long, variable == "prepfuel_minsday"), aes(x = group, y = c(5, 10), label = round(count))) +
+  theme_bw()
+  
+c
+ggsave("Figure_Cooking_Related.pdf", c, width = 5, height = 5)
+
 productive_long <- select(complete, group, hoursweek_income, hoursweek_producinggoods, hoursweek_leisure) %>% mutate(hoursweek_productive = hoursweek_income + hoursweek_producinggoods + hoursweek_leisure) %>%
   pivot_longer(!group, names_to = "variable", values_to = "count")
 
@@ -222,6 +276,37 @@ p <- p + geom_boxplot(aes(x = group, y = count, fill = factor(variable))) +
 p
 
 ggsave("Figure_Productive_Activity.pdf", p, width = 8, height = 5)
+
+#nb.cols <- 13
+#getPalette = colorRampPalette(brewer.pal(12, "Paired"))
+
+drudgery <- select(complete, group, task_mostdrudgerous) %>% filter(!is.na(task_mostdrudgerous)) %>%arrange(group, task_mostdrudgerous)
+counts <- as.data.frame(group_by(drudgery, group) %>% summarise(n = n()))
+
+d <- ggplot(drudgery) +
+  geom_bar(aes(x = group, fill = task_mostdrudgerous)) +
+  xlab("") +
+  ylab("Number of Participants") +
+  scale_fill_brewer(palette = "Paired")+
+  labs(fill = "Most Drudgerous Task")+
+  geom_text(data = counts, aes(x = group, y = -5, label = paste0("N = ", n))) +
+  theme_bw()
+d
+ggsave("Figure_Drudgery.pdf", d, width = 7, height = 5)
+
+enjoy <- select(complete, group, task_mostenjoyed) %>% arrange(group, task_mostenjoyed)
+counts <- as.data.frame(group_by(enjoy, group) %>% summarise(n = n()))
+
+e <- ggplot(enjoy) +
+  geom_bar(aes(x = group, fill = task_mostenjoyed)) +
+  xlab("") +
+  ylab("Number of Participants") +
+  scale_fill_brewer(palette = "Paired")+
+  labs(fill = "Most Enjoyable Task")+
+  geom_text(data = counts, aes(x = group, y = -5, label = paste0("N = ", n))) +
+  theme_bw()
+e
+ggsave("Figure_Enjoyment.pdf",e, width = 8, height = 5)
 ```
 
 
@@ -255,7 +340,7 @@ c
 
 d <- ggplot(complete) + 
   geom_bar(aes(x = cooking_effort_scale,fill = group), position = position_dodge2()) +
-  xlab("Cooking Effort") +
+  xlab("Cooking Effort*") +
   ylab("Number of Responses") +
   ylim(0,80) +
   scale_fill_manual(values=my_colors) +
@@ -266,7 +351,7 @@ d
 
 e <- ggplot(complete) + 
   geom_bar(aes(x = effort_collect,fill = group), position = position_dodge2()) +
-  xlab("Woodfuel Collection Effort") +
+  xlab("Woodfuel Collection Effort*") +
   ylab("Number of Responses") +
   ylim(0,80) +
   scale_fill_manual(values=my_colors) +
@@ -277,7 +362,7 @@ e
 
 f <- ggplot(complete) + 
   geom_bar(aes(x = effort_prepare,fill = group), position = position_dodge2()) +
-  xlab("Woodfuel Preparation Effort") +
+  xlab("Woodfuel Preparation Effort*") +
   ylab("") +
   ylim(0,80) +
   scale_fill_manual(values=my_colors) +
@@ -290,7 +375,7 @@ f
 
 g <- ggplot(complete) + 
   geom_bar(aes(x = effort_purchase, fill = group), position = position_dodge2(preserve = "single")) +
-  xlab("Woodfuel Purchasing Effort") +
+  xlab("Woodfuel Purchasing Effort*") +
   ylab("") +
   ylim(0,80) +
   scale_fill_manual(values=my_colors) +
@@ -338,26 +423,42 @@ g1 <- ggplot(filter(complete, group == "Customer"), aes(x = group, y = fuel_time
 g1
 ```
 
+
+```{r fuel-prep-table, results = "asis"}
+fuel_prep <- filter(complete, group == "Customer") %>%select(group, fuel_timesavings_hoursweek) %>% mutate(fuel_timesavings_minday = fuel_timesavings_hoursweek*60/7)
+summary(fuel_prep)
+nrow(filter(fuel_prep, fuel_timesavings_minday ==0))/nrow(fuel_prep)
+quantile(fuel_prep$fuel_timesavings_minday, probs = seq(from = 0, to = 1, by = 0.1))
+print(summary(tableby(group~ fuel_timesavings_minday, data = fuel_prep)))
+```
+
+
 ```{r households-responding, results = "asis"}
 #woodfuel collection time, time preparing fuel, income producing activities, hoursweek_producinggoods, hoursweek_income, hoursweek_leisure, 
 
-complete <- mutate(complete, prepfuel_minday_noNA = case_when(is.na(effort_prepare) ~ NA_real_,
-                                                             TRUE ~ prepfuel_minday),
+complete <- mutate(complete, prepfuel_minsday_noNA = case_when(is.na(effort_prepare) ~ NA_real_,
+                                                             TRUE ~ prepfuel_minsday),
                    collecting_minday_noNA = case_when(is.na(effort_collect) ~ NA_real_,
                                                       TRUE ~ collecting_minday),
                    collects_woodfuel = !is.na(effort_collect),
                    purchases_woodfuel = !is.na(effort_purchase),
                    prepares_woodfuel = !is.na(effort_prepare))
 
-fuel_subset_table <- tableby(group ~ collects_woodfuel + purchases_woodfuel + prepares_woodfuel + collecting_minday_noNA  + prepfuel_minday_noNA, data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"), cat.simplify = TRUE)
+fuel_subset_table <- tableby(group ~ collects_woodfuel + purchases_woodfuel + prepares_woodfuel + collecting_minday_noNA  + prepfuel_minsday_noNA, data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"), cat.simplify = TRUE)
 
-fuel_subset_table2 <- tableby(group ~  prepfuel_minday_noNA + collecting_minday_noNA , data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"), cat.simplify = TRUE)
+fuel_subset_table2 <- tableby(group ~  prepfuel_minsday_noNA + collecting_minday_noNA , data = complete, total = FALSE, numeric.stats = c("meansd", "range", "N"), cat.simplify = TRUE)
 
                 
                             
-labels(fuel_subset_table) <- c(collects_woodfuel = "Collects Woodfuel (N)", purchases_woodfuel = "Purchases Woodfuel (N)", prepares_woodfuel = "Prepares Woodfuel (N)", collecting_minday_noNA = "Woodfuel Collection Time (minutes/day)", prepfuel_minday_noNA = "Time Preparing Fuel (minutes/day)")
+labels(fuel_subset_table) <- c(collects_woodfuel = "Collects Woodfuel (N)", purchases_woodfuel = "Purchases Woodfuel (N)", prepares_woodfuel = "Prepares Woodfuel (N)", collecting_minday_noNA = "Woodfuel Collection Time (minutes/day)", prepfuel_minsday_noNA = "Time Preparing Fuel (minutes/day)")
 
-print(summary(fuel_subset_table,digits = 1, pfootnote = TRUE))
+print(summary(fuel_subset_table,digits = 0, pfootnote = TRUE))
 
+```
+
+```{r ran-out=biogas}
+ranout <- as.data.frame(filter(complete, fuelunavailable_yn == 1, group == "Customer") %>% select(fuelunavailable_fuels)) %>% mutate(fuel_unavailable = factor(fuelunavailable_fuels, levels = as.list(fuel_codes$name), labels = as.list(fuel_codes$caption..english)))
+
+summary(ranout)
 ```
 
