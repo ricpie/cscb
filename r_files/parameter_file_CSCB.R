@@ -38,8 +38,6 @@ logging_duration_minimum <- 1 #days.  Single file duration must be this long to 
 total_days_logged_minimum <- 5 #Must have at least this many days for a households's stove to be included in the analysis.
 
 
-
-#Not yet implemented.
 start_date_range <- "2018-2-1" #Year-Month-Day format.  Do not include data before this in the analysis
 end_date_range <- "2022-10-1" #Do not include data after this in the analysis
 

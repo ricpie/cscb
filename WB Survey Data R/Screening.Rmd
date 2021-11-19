@@ -22,8 +22,20 @@ source("load.R")
 ```
 
 ```{r load-data}
-control <- read.csv("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data/Screening data/To recreate screening analysis/WBCSCB_Sistema_CONT_Selection.csv")
+control <- read.csv("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/Screening data/To recreate screening analysis/WBCSCB_Sistema_CONT_Selection.csv")
 int <- read.csv("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/Screening data/To recreate screening analysis/WBCSCB_Sistema_INT_Selection.csv")
+
+# fix typos
+int$Screening.A1_HHID[int$Screening.A2_village== "47_DA_IN"] <- "47_DA_IN"
+int$Screening.A2_village[int$Screening.A1_HHID == "47_DA_IN"] <- "Githioro village"
+int$Screening.A1_HHID[int$Screening.A1_HHID == "03-SW-03"] <- "03_SW_IN"
+int$Screening.A1_HHID <- gsub("-", "_", int$Screening.A1_HHID)
+
+length(unique(int$Screening.A1_HHID)) #158
+# duplicates - HHID "03_JK_IN" is duplicated, don't know which one was enrolled - remove both for now
+
+int <- filter(int, !Screening.A1_HHID == "03_JK_IN")
+
 ```
 
 ```{r lsm}
@@ -108,9 +120,9 @@ boxplot(control$B_Section_2.lsm)
 
 Screening summary:
 ```{r}
-# variables of interest: hhid, land (own or rent), lsm
+# variables of interest: hhid, beforestove, land (own or rent), lsm
 
-int_select <- select(int, Screening.A1_HHID, Screening.A10_landown, Screening.A11_landrent)
+int_select <- select(int, Screening.A1_HHID, Screening.A4_beforestove, Screening.A10_landown, Screening.A11_landrent)
 int_select <- full_join(int_select, select(lsm_int, Screening.A1_HHID, lsm))
 
 names(int_select) <- gsub(".*_","",names(int_select))
@@ -129,3 +141,5 @@ t.test(lsm ~ group, data = screening)
 
 write.csv(screening, file = "screening_lsm_wb.csv")
 ```
+
+

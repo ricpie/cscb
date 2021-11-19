@@ -1,24 +1,35 @@
 #Import Geocene Studies data, organize it so it looks like Sumsarizer data.
 #***Data from other campaigns, stove types, and stove groups will be ignored!!***
 rm(list = ls())
+
+
+###***Enter parameter file name for data to be analyzed***###
+parameter_filename <- "parameter_file_E2E.R" 
+processor1 ='FF_sensitive'
+processor2 ='CAA Cooking Event Processor'
+
+<<<<<<< HEAD:r_markdown/geocene_export_helper_NAMA2019.R
+
 # Include libraries
 source('r_scripts/load.R')
 source('r_scripts/load_data.R')
-source_url("https://raw.githubusercontent.com/ricpie/sums_analysis/master/r_scripts/load.R",prompt=FALSE)#SHA = NULL
-source(paste0('r_files/',parameter_filename))
-
-###***Enter parameter file name for data to be analyzed***###
-parameter_filename <- "parameter_file_CSCB.R" 
-processor1 ='firefinder_50'
-processor2 =''
+source_url("https://raw.githubusercontent.com/ricpie/sums_analysis/master/r_scripts/load.R",sha=NULL,prompt=FALSE)
+source(paste0('r_files/',parameter_filename)) 
+# odk_data <- load_meta_json("~/Dropbox/Peru 2019 NAMA Internal/Analysis/SUMS Tracking data/Perú_NAMA_SUMs_v3_results.json")
+odk_data <- load_meta_json("~/Dropbox/Peru 2019 NAMA Internal/Analysis/SUMS Tracking data/Perú_NAMA_SUMs_v3_results_v2.json")
+=======
+# Include libraries 
+source('../r_scripts/load.R')
+# source('r_scripts/load_data.R')
+source(paste0('../r_files/',parameter_filename)) #OG Codebase
+>>>>>>> d1f20beaaadaa1ab3c5498191860cfa3afca5ec7:r_markdown/geocene_export_helper_E2E-2020.R
 
 stove_types <- paste(stove_codes$stove,  collapse = "|")
 stove_groups <-paste(stove_group_codes$group,collapse = "|")
 
 # The name of the unzipped folder containing the Geocene Studies export
-studies_export_folder = '~/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/Geocene Studies Output'
+studies_export_folder = '~/Dropbox/UNOPS emissions exposure/Data/analysis-20200421/caa_dots_data'
 save_folder = 'SUMSARIZED' #Data is saved to this folder, to be consistent with past codes.
-
 
 dot_data_files = list.files(paste0(studies_export_folder,'/metrics'),pattern='.csv|.CSV', full.names = T,recursive = F)
 
@@ -44,9 +55,8 @@ read_dot_data_file = function(dot_data_file) {
 
 # Apply the function to read Dot data to all Dot data files and
 # convert individual dataframes into a single data frame
-dot_data = rbindlist(lapply(dot_data_files, read_dot_data_file), fill = T)
-dot_data[,filename:=NULL]
-# dot_data = rbindlist(ldply(dot_data_files, read_dot_data_file,.parallel = TRUE), fill = T)
+# dot_data = rbindlist(lapply(dot_data_files, read_dot_data_file), fill = T)
+dot_data = rbindlist(ldply(dot_data_files, read_dot_data_file,.parallel = TRUE), fill = T)
 
 
 
@@ -66,28 +76,27 @@ make_tags = function(tags){
 }
 
 tags = make_tags(fread(paste(studies_export_folder, 'tags.csv', sep = '/')))
-tags[,hhid:=paste0(hhid,hhi,hhig,hiid,hid)]
-tags[,hhid:=gsub("NA","",hhid)]
-tags[,hhi:=NULL]
-tags[,hhig:=NULL]
-tags[,hiid:=NULL]
-tags[,hid:=NULL]
 
 missions = fread(paste(studies_export_folder, 'missions.csv', sep = '/'))
+missions <- missions[grepl(campaign_name,campaign,ignore.case = TRUE),]
+<<<<<<< HEAD:r_markdown/geocene_export_helper_NAMA2019.R
+missions$meter_name = substr(missions$meter_name,5,8)
+=======
 missions = merge(missions,tags,by='mission_id')
-missions = missions[,c("mission_id","mission_name","meter_name",
-                       "meter_id","notes","group","campaign","type",
-                       "creator_username",
-                       "hhid","stovetype")]
+missions = missions[,c("mission_id","mission_name","meter_name","meter_id","notes","group","campaign","creator_username",
+                       "household_id","indoors","other_people_use","other_people_use_n","shared_cooking_area","stove_type","stove_type_other")]
 
-missions$stove_type<-mgsub::mgsub(missions$stovetype, stove_codes$stove, stove_codes$stove_descriptions)
+missions$group[is.na(missions$group)] <-'wood'
+missions$stove_type<-mgsub::mgsub(missions$stove_type, stove_codes$stove, stove_codes$stove_descriptions)
 missions$group<-mgsub::mgsub(missions$group, stove_group_codes$group, stove_group_codes$stove_groups)
 
-missions[,stove_type:=gsub(" ","",stove_type)]
-missions[,filename:=paste(type,hhid,stove_type,group,sep = "_")]
-missions[, hhid:=NULL]
+>>>>>>> d1f20beaaadaa1ab3c5498191860cfa3afca5ec7:r_markdown/geocene_export_helper_E2E-2020.R
+
+missions[,filename:=paste(group,household_id,stove_type,indoors,sep = "_")]
+missions[, household_id:=NULL]
 missions[, shared_cooking_area:=NULL]
 missions[, stove_type:=NULL]
+
 
 # Combine time series data and mission+tag metadata 
 temp = merge(dot_data, as.data.table(missions), by = c('mission_id'))
@@ -104,6 +113,28 @@ all_data[, stop_time:=NULL]
 setnames(all_data, old=c("meter_name"), new=c("logger_id"))
 
 
+#Check to make sure all the dot Geocene entries have corresponding ODK entries.  Check for typos etc (manually)
+# dot_name_check <- dplyr::as_data_frame(unique(all_data$logger_id)) %>%
+#   dplyr::rename("logger_id" = "value") %>%
+#   dplyr::full_join(jsonmetadata,"logger_id")
+
+
+#Check to make sure all the dot ODK entries have corresponding Geocene entries.  Check for typos etc (manually)
+# asdf<-anti_join(dplyr::as_data_frame(unique(jsonmetadata$logger_id)),dplyr::as_data_frame(unique(all_data$logger_id)) ,'value')
+
+# Correct any Dot metadata entries (HHID, stove group, stove type, dot name) in the Dot file names using the jsonmetadata, that has been confirmed to be correct.
+# unknowns <- dplyr::filter(all_data,"unknown"==HHID | "Unknown"==HHID)
+# unknowns <- dplyr::filter(all_data,"11050"==HHID)
+# unique_unknowns <- unique(unknowns$dot_name)
+# unique_unknowns <- unique(unknowns$HHID)
+# unknowns <- dplyr::filter(all_data,"EC01"==DotID)
+# dplyr::filter(jsonmetadata,grepl('EC01',logger_id,fixed=TRUE))
+# unknowns <- dplyr::filter(all_data,is.na(stovegroup))
+# unique_unknowns <- unique(unknowns$HHID)
+# uniquepattern <- paste(unique_unknowns, collapse = "|")
+# uniquepattern <- gsub('Dot_','',unique_unknowns)
+# dplyr::filter(jsonmetadata,grepl(uniquepattern[10],logger_id,fixed=TRUE))
+
 
 # -----------------
 # For SUMSarizer users, create a table that looks like SUMSarizer's old output
@@ -111,21 +142,21 @@ sumsarizer_output = data.table(filename = all_data$filename,
                                timestamp = all_data$timestamp,
                                value = all_data$value,
                                pred = all_data$event_kind,
-                               mission_id = all_data$mission_id,
                                logger_id = all_data$logger_id,
-                               datapoint_id = paste(all_data$processor_name,all_data$model_name,all_data$alltags)
+                               datapoint_id = paste(all_data$processor_name,all_data$model_name,all_data$alltags),
+                               logger_id = all_data$logger_id
 )
 sumsarizer_output$pred[grepl('COOKING|cooking',sumsarizer_output$pred)] = TRUE
 sumsarizer_output$pred[sumsarizer_output$pred == 'COOKING'] = TRUE
 sumsarizer_output$pred[is.na(sumsarizer_output$pred)] = FALSE
 
-uniquefiles <- unique(sumsarizer_output[,filename])
+uniquefiles <- unique(sumsarizer_output[,1])
 #Save each file separately with the new correct name.  
-for (i in 1:length(uniquefiles)[1]) {
+for (i in 1:dim(uniquefiles)[1]) {
   output_temp <- sumsarizer_output[filename == uniquefiles[i]]
-  write.csv(output_temp, file = paste0(save_folder,"/",output_temp$filename[1],".csv"),row.names = FALSE)
+  write.csv(output_temp, file = paste0("../../",save_folder,"/",output_temp$filename[1],".csv"),row.names = FALSE)
 }
-getwd()
+
 # Clean up the files
 # rm(list=setdiff(ls(), c('all_data', 'dot_data', 'events', 'missions', 'sumsarizer_output')))
 

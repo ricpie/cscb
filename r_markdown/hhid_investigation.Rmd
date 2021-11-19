@@ -1,0 +1,67 @@
+---
+title: "SUMs Analysis using studies.geocene.com data"
+knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = paste0(substr(inputFile,1,nchar(inputFile)-31),'Results/hhid_investigation_',Sys.Date(),'.html')) })
+author: "berkeley_air_monitoring_group"
+date: "Oct-23 2019"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    self_contained: yes
+---
+
+```{r read_me,echo=FALSE}
+knitr::opts_chunk$set(fig.path='../figures/', warning=FALSE, message=FALSE, cache=FALSE)
+#To run this code for SUMs analysis, first ensure that Rstudio with R 3.3.2 or later is installed.
+#The code requires 1. Geocene Studies-processed data, and 2. a tracking data Excel sheet
+#Ensure that the files are located in the right locations, as per the SUMs Analysis Training Guide (https://www.dropbox.com/s/wcykl2wsb67tuux/SUMSAnalysisBATraining.pdf?dl=0)
+```
+
+# Import data provided by Madeleine
+
+```{r import,echo=FALSE,include=FALSE}
+
+source('../r_scripts/load.R')
+tz_local = "Africa/Nairobi"
+
+sums_forms = read.xlsx("/Users/ricardopiedrahita/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/HHIDSurveySUMsMatch_vF.xlsx",sheet = "Sheet1") %>% 
+  dplyr::mutate(Date_sums = as.Date(date_SUMS,origin  = "1900-1-1"),
+                DateTimestr = paste(Date_sums,time_SUMS),
+                DateTime_sums = as.POSIXct(DateTimestr,tz = tz_local)) %>% 
+  dplyr::select(-DateTimestr,-date_SUMS,-time_SUMS) %>% 
+  dplyr::rename(key = key_SUMS,
+                HHID = HHID_SUMS)
+
+sums_loops = read.xlsx("/Users/ricardopiedrahita/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/HHIDSurveySUMsMatch_vF.xlsx",sheet = "Sheet2") %>% 
+  dplyr::select(filename_loop1,key_loop) %>% 
+  dplyr::group_by(key_loop) %>% 
+  dplyr::mutate(rownum = row_number()) %>% 
+  pivot_wider(names_from = rownum,values_from = filename_loop1) %>% 
+  dplyr::group_by(key_loop) %>% 
+  summarise_all(funs(na.omit(.)[1])) %>% 
+  dplyr::rename(key = key_loop)
+
+survey_forms = read.xlsx("/Users/ricardopiedrahita/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/HHIDSurveySUMsMatch_vF.xlsx",sheet = "Sheet3") %>% 
+  dplyr::mutate(datetime_survey = gsub("T"," ",datetime_survey),
+                DateTime_survey = as.POSIXct(datetime_survey,tz = tz_local),
+                Date_survey = as.Date(DateTime_survey)) %>% 
+  dplyr::select(-datetime_survey) %>% 
+    dplyr::rename(HHID = HHID_survey)
+
+
+
+
+merged_SUMs = sums_forms %>% 
+  dplyr::full_join(sums_loops) 
+
+merged_SUMs_survey <- merged_SUMs %>% 
+  dplyr::full_join(survey_forms)
+  
+saver = list("merged_SUMs" = merged_SUMs,
+             "merged_SUMs_survey" = merged_SUMs_survey)
+openxlsx::write.xlsx(saver, file = paste0("../Results/HHID investigation ",format(now(),"%d-%b-%y"),".xlsx"))
+
+  
+
+```

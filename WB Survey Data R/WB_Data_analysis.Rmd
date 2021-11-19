@@ -1,7 +1,7 @@
 ---
 title: "WB Field report data analysis"
 output: 
-  word_document:
+  #word_document:
   html_document:
     toc: true
     toc_depth: 2
@@ -44,6 +44,18 @@ Sys.Date()
 screening <- read.csv("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/WB Survey Data R/screening_lsm_wb.csv")
 
 survey <- read_excel("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/WB Survey Data R/Analytic Dataset/WBCSCB_SurveyComparisonSet_vF.xlsx")
+
+dungtasks1 <- read_excel("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/WB Survey Data R/Analytic Dataset/12Oct_TimeCalcs_WBCSCB.xlsx", sheet = 1, range = cell_cols(1:3))
+dungtasks2 <- read_excel("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/WB Survey Data R/Analytic Dataset/12Oct_TimeCalcs_WBCSCB.xlsx", sheet = 2, range = cell_cols(1:3))
+dungtasks3 <- read_excel("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/WB Survey Data R/Analytic Dataset/12Oct_TimeCalcs_WBCSCB.xlsx", sheet = 3, range = cell_cols(1:3))
+dungtasks4 <- read_excel("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/WB Survey Data R/Analytic Dataset/12Oct_TimeCalcs_WBCSCB.xlsx", sheet = 4, range = cell_cols(1:3))
+
+dungtasks <- full_join(dungtasks1, dungtasks2)
+dungtasks <- left_join(dungtasks, dungtasks3)
+dungtasks <- left_join(dungtasks, dungtasks4) 
+dungtasks$group <- "Customer"
+
+cookinghelper <- read_excel("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/WB Survey Data R/Analytic Dataset/12Oct_TimeCalcs2_WBCSCB.xlsx")
 
 survey <- mutate(survey, group = case_when(group == "intervention" ~"Customer",
                                                 group == "control" ~ "Non-customer"))
@@ -94,12 +106,34 @@ complete <- mutate(complete,
 ```
 
 
-# LSM data (from screening, not exactly aligned with participants)
+# LSM data and prior stove data (from screening, not exactly aligned with participants)
 ```{r stats-tests-screening, results = "asis"}
 lsm_table <-tableby(group ~ lsm, data = screening)
 print(summary(lsm_table, digits= 0), pfootnote = TRUE)
 
 
+included_hhs <- read_excel("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/FINAL_WB_HHIDs.xlsx")
+screening_int <- filter(screening, group == "intervention") # 157
+screening_int <- filter(screening_int, HHID %in% included_hhs$`SURVEY HHID`) # 145
+
+
+
+included_hhs$group <- str_sub(included_hhs$"SURVEY HHID", start= 7)
+included_hhs$group <- recode(included_hhs$group, "IN" = "intervention", "CON" = "control")
+
+filter(included_hhs, group == "intervention", !`SURVEY HHID` %in% screening_int$HHID)
+
+
+
+screening_stove_codes <- data.table(name = c(1:9,"other"), caption..english = c("Three stone fire", "Metal charcoal stove", "Ceramic charcoal stove", "Kenyan Ceramic Jiko (KCJ)", "Modified three stone fire", "LPG", "Electric", "Kerosene", "Other"))
+
+screening_int <- mutate(screening_int, previous_stove_type = factor(beforestove, levels =as.list(screening_stove_codes$name), labels = as.list(screening_stove_codes$caption..english)))
+
+
+screening_int <- full_join(screening_int, filter(included_hhs, group == "intervention"), by = c("HHID" = "SURVEY HHID", "group"))
+
+prior_stove_table <- tableby(group ~ previous_stove_type, data = screening_int)
+print(summary(prior_stove_table, digits= 0), pfootnote = TRUE)
 ```
 
 
@@ -456,9 +490,173 @@ print(summary(fuel_subset_table,digits = 0, pfootnote = TRUE))
 
 ```
 
-```{r ran-out=biogas}
+```{r ran-out-biogas}
 ranout <- as.data.frame(filter(complete, fuelunavailable_yn == 1, group == "Customer") %>% select(fuelunavailable_fuels)) %>% mutate(fuel_unavailable = factor(fuelunavailable_fuels, levels = as.list(fuel_codes$name), labels = as.list(fuel_codes$caption..english)))
 
 summary(ranout)
+```
+
+
+# load data for responses to feedback
+```{r data-for-additional-tables}
+cook_gender <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 1, skip = 1)
+
+earner_gender <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 2, skip = 1)
+
+cooking_helper <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 3, skip = 1) %>% mutate(cooking_helper = factor(cooking_helper, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households with cooking helper", "Total")))
+
+woodfuel_purchaser <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 4, skip = 1) %>% mutate(woodfuel_purchaser = factor(woodfuel_purchaser, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households who perform task", "Total")))
+
+charcoal_purchaser <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 5, skip = 1) %>% mutate(charcoal_purchaser = factor(charcoal_purchaser, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households who perform task", "Total")))
+
+LPG_purchaser <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 6, skip = 1)%>% mutate(LPG_purchaser = factor(LPG_purchaser, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households who perform task", "Total")))
+
+woodfuel_collector <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 7, skip = 1)%>% mutate(woodfuel_collector = factor(woodfuel_collector, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households who perform task", "Total")))
+
+woodfuel_preparer <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 8, skip = 1)%>% mutate(woodfuel_preparer = factor(woodfuel_preparer, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households who perform task", "Total")))
+
+dung_collector <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 9, skip = 1)%>% mutate(dung_collector = factor(dung_collector, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households who perform task", "Total")))
+  
+biodigester_feeder <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 10, skip = 1)%>% mutate(biodigester_feeder = factor(biodigester_feeder, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households who perform task", "Total")))
+
+biodigester_stirrer <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 11, skip = 1)%>% mutate(biodigester_stirrer = factor(biodigester_stirrer, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households who perform task", "Total")))
+  
+biodigester_maintainer <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 12, skip = 1)%>% mutate(biodigester_maintainer = factor(biodigester_maintainer, levels = c("Myself", "Adult daughter (over age 18)", "Other adult female household member", "Female child aged 12-18", "Female child aged under 12", "My husband/spouse", "Adult son (over age 18)", "Other adult male household member", "Male child aged 12-18", "Male child aged under 12", "Female farmhand or house help", "Male farmhand or house help", "Other [describe]", "None", "Total households who perform task", "Total")))
+
+previous_stove <- read_xlsx("/Users/ashlinnquinn/Dropbox/World Bank Gender Cobenefits/Data Analysis cscb/SUMs and survey Data/HH Survey data/Compiled_tables_long.xlsx", sheet = 13, skip = 1) %>% mutate(previous_stove = factor(previous_stove, levels = c("Three stone fire", "Modified three stone fire", "Metal charcoal stove", "Ceramic charcoal stove", "Kenyan Ceramic Jiko (KCJ)", "Kerosene", "LPG", "Electric", "Other", "Missing", "Total")))
+
+### plots
+
+get_legend<-function(myggplot){
+  tmp <- ggplot_gtable(ggplot_build(myggplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+
+labels <- data.frame(label = c("self", "other females", "other males", "hired/other", "none"), place = c("Myself", "Other adult female household member", "Adult son (over age 18)", "Male farmhand or house help", "None"))
+
+cook_gender_plot <- ggplot(filter(cook_gender, !cook_gender == "total"), aes(x = cook_gender, y = `%`*100)) + geom_bar(aes(fill = group), stat = "identity", position = "dodge") + ylab("Percent of Households")  + ylim(0,100) + theme_minimal() + theme(legend.title = element_blank())
+
+cook_gender_plot
+
+earner_gender_plot <- ggplot(filter(earner_gender, !earner_gender == "total"), aes(x = earner_gender, y = `%`*100)) + geom_bar(aes(fill = group), stat = "identity", position = "dodge") + ylab("Percent of Households")  + ylim(0,100) + theme_minimal()+ theme(legend.title = element_blank())
+
+earner_gender_plot
+
+# has legend
+cooking_helper_plot <- ggplot(filter(cooking_helper, !cooking_helper == "Total", !cooking_helper == "Total households with cooking helper"), aes(x = cooking_helper, y = `%`*100)) + geom_bar(aes(fill = group), stat = "identity", position = "dodge") + ylab("Percent of Households")  + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90))  + theme(legend.title = element_blank()) + geom_vline(xintercept = 4.5) + geom_vline(xintercept = 9.5) + geom_vline(xintercept = 12.5) + geom_label(aes(x = place, y = 100, label = label), data = filter(labels, !place == "Myself"))
+
+cooking_helper_plot
+
+legend <- get_legend(cooking_helper_plot)
+
+woodfuel_purchaser_plot <- ggplot(filter(woodfuel_purchaser, !woodfuel_purchaser == "Total", !woodfuel_purchaser == "Total households who perform task"), aes(x = woodfuel_purchaser, y = `%`*100)) + geom_bar(aes(fill = group), stat = "identity", position = "dodge") + ylab("Percent of Households") + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank()) + geom_vline(xintercept = 1.5) + geom_vline(xintercept = 5.5) + geom_vline(xintercept = 10.5)+ geom_vline(xintercept = 13.5) + geom_label(aes(x = place, y = 100, label = label), data = labels)
+
+woodfuel_purchaser_plot
+
+charcoal_purchaser_plot <- ggplot(filter(charcoal_purchaser, !charcoal_purchaser == "Total", !charcoal_purchaser == "Total households who perform task"), aes(x = charcoal_purchaser, y = `%`*100)) + geom_bar(aes(fill = group), stat = "identity", position = "dodge") + ylab("Percent of Households") + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank()) + geom_vline(xintercept = 1.5) + geom_vline(xintercept = 5.5) + geom_vline(xintercept = 10.5)+ geom_vline(xintercept = 13.5) + geom_label(aes(x = place, y = 100, label = label), data = labels)
+
+charcoal_purchaser_plot
+
+
+LPG_purchaser_plot <- ggplot(filter(LPG_purchaser, !LPG_purchaser == "Total", !LPG_purchaser == "Total households who perform task"), aes(x = LPG_purchaser, y = `%`*100)) + geom_bar(aes(fill = group), stat = "identity", position = "dodge") + ylab("Percent of Households")  + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank()) + geom_vline(xintercept = 1.5) + geom_vline(xintercept = 5.5) + geom_vline(xintercept = 10.5)+ geom_vline(xintercept = 13.5) + geom_label(aes(x = place, y = 100, label = label), data = labels)
+
+LPG_purchaser_plot
+
+woodfuel_collector_plot <- ggplot(filter(woodfuel_collector, !woodfuel_collector == "Total", !woodfuel_collector == "Total households who perform task"), aes(x = woodfuel_collector, y = `%`*100)) + geom_bar(aes(fill = group), stat = "identity", position = "dodge") + ylab("Percent of Households") + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank()) + geom_vline(xintercept = 1.5) + geom_vline(xintercept = 5.5) + geom_vline(xintercept = 10.5)+ geom_vline(xintercept = 13.5) + geom_label(aes(x = place, y = 100, label = label), data = labels)
+
+woodfuel_collector_plot
+
+woodfuel_preparer_plot <- ggplot(filter(woodfuel_preparer, !woodfuel_preparer == "Total", !woodfuel_preparer == "Total households who perform task"), aes(x = woodfuel_preparer, y = `%`*100)) + geom_bar(aes(fill = group), stat = "identity", position = "dodge") + ylab("Percent of Households") + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank()) + geom_vline(xintercept = 1.5) + geom_vline(xintercept = 5.5) + geom_vline(xintercept = 10.5)+ geom_vline(xintercept = 13.5) + geom_label(aes(x = place, y = 100, label = label), data = labels)
+
+woodfuel_preparer_plot
+
+dung_collector_plot <- 
+  ggplot(filter(dung_collector, !dung_collector == "Total", !dung_collector == "Total households who perform task"), aes(x = dung_collector, y = `%`*100)) + geom_bar( stat = "identity", position = "dodge", fill = "#F8766D") + ylab("Percent of Households") + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank()) + geom_vline(xintercept = 1.5) + geom_vline(xintercept = 5.5) + geom_vline(xintercept = 10.5)+ geom_vline(xintercept = 13.5) + geom_label(aes(x = place, y = 100, label = label), data = labels)
+
+dung_collector_plot
+  
+biodigester_feeder_plot <- 
+  ggplot(filter(biodigester_feeder, !biodigester_feeder == "Total", !biodigester_feeder == "Total households who perform task"), aes(x =biodigester_feeder, y = `%`*100)) + geom_bar( stat = "identity", position = "dodge", fill = "#F8766D") + ylab("Percent of Households") + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank()) + geom_vline(xintercept = 1.5) + geom_vline(xintercept = 5.5) + geom_vline(xintercept = 10.5)+ geom_vline(xintercept = 13.5) + geom_label(aes(x = place, y = 100, label = label), data = labels)
+
+biodigester_feeder_plot
+
+
+biodigester_stirrer_plot <- 
+  ggplot(filter(biodigester_stirrer, !biodigester_stirrer == "Total", !biodigester_stirrer == "Total households who perform task"), aes(x =biodigester_stirrer, y = `%`*100)) + geom_bar( stat = "identity", position = "dodge", fill = "#F8766D") + ylab("Percent of Households") + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank()) + geom_vline(xintercept = 1.5) + geom_vline(xintercept = 5.5) + geom_vline(xintercept = 10.5)+ geom_vline(xintercept = 13.5) + geom_label(aes(x = place, y = 100, label = label), data = labels)
+
+biodigester_stirrer_plot
+
+biodigester_maintainer_plot <- 
+  ggplot(filter(biodigester_maintainer, !biodigester_maintainer == "Total", !biodigester_maintainer == "Total households who perform task"), aes(x =biodigester_maintainer, y = `%`*100)) + geom_bar( stat = "identity", position = "dodge", fill = "#F8766D") + ylab("Percent of Households") + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank()) + geom_vline(xintercept = 1.5) + geom_vline(xintercept = 5.5) + geom_vline(xintercept = 10.5)+ geom_vline(xintercept = 13.5) + geom_label(aes(x = place, y = 100, label = label), data = labels)
+
+biodigester_maintainer_plot
+
+previous_stove_plot <- ggplot(filter(previous_stove, !previous_stove == "Total", !previous_stove == "Missing"), aes(x =previous_stove, y = `%`*100)) + geom_bar( stat = "identity", position = "dodge", fill = "#F8766D") + ylab("Percent of Households") + ylim(0,100) + theme_minimal() + theme(axis.text.x = element_text(angle = 90)) + theme(legend.title = element_blank())
+
+previous_stove_plot
+```
+
+# Time across household for biodigester tasks
+```{r dung-tasks, results = "asis"}
+dungtasks$Mins_across_all_biodigester = rowSums(dungtasks[,c(3,5,7,9)], na.rm = TRUE)
+dungtasks <- rename(dungtasks, minsday_collectdung = "Minutes collecting/ feeding dung per day (M1)" , minsday_feeddigester = "Minutes feeding/mixing biodigester per day (M2)", minsday_stirdigester = "Minutes agitating slurry per day (M3)", minsday_maintaindigester = "Total minutes maintaining biodigester per day (N1)")
+
+dungtasks$whodung <- dungtasks$`M_Biogas-M1_whoDung`
+dungtasks <- mutate(dungtasks, whodung_cat = case_when(as.numeric(whodung) == 0 ~ "None",
+                                                       as.numeric(whodung) == "1" ~ "Self",
+                                                       as.numeric(whodung) %in% c("2", "7", "8", "9", "10") ~ "Other males",
+                                                       as.numeric(whodung) %in% c("3","4","5","6") ~ "Other females",
+                                                    whodung %in% c("11", "12", "other") ~ "Hired/other"))
+
+# time across household
+print(summary(tableby(group ~ minsday_collectdung + minsday_feeddigester + minsday_stirdigester + minsday_maintaindigester + Mins_across_all_biodigester, data = dungtasks, numeric.stats = c("meansd", "median", "range",  "q1q3", "N", "Nmiss2"))))
+
+print(summary(tableby(whodung_cat ~ minsday_collectdung, data = dungtasks, numeric.stats = c("meansd", "median", "range",  "N", "Nmiss2"))))
+
+
+```
+
+# Time for self for biodigester tasks
+``` {r dungtasks_self, results = "asis"}
+
+# time for self
+dungtasks_self <- dungtasks
+dungtasks_self <- mutate(dungtasks_self, minsday_collectdung = case_when(`M_Biogas-M1_whoDung` == "1" ~ as.numeric(minsday_collectdung)),
+                         minsday_feeddigester = case_when(`M_Biogas2-M2_FeedsDigester` == "1" ~ as.numeric(minsday_feeddigester)),
+                         minsday_stirdigester = case_when(`M_Biogas3-M3_StirDigester` == "1" ~ as.numeric(minsday_stirdigester)),
+                         minsday_maintaindigester = case_when (`N_organicfertilizer-N1_maintainsbiodigester` == "1" ~ as.numeric(minsday_maintaindigester)))
+
+#inclzero: the time spent by the woman, whether or not she is the one who performs the tasks
+dungtasks_self <- select(dungtasks_self, -Mins_across_all_biodigester) 
+dungtasks_self$Mins_across_all_biodigester_inclzero <- rowSums(dungtasks_self[,c(3,5,7,9)], na.rm = TRUE)
+
+#nozero: the time the woman reports spending on the tasks she performs (not including women who don't do any)
+dungtasks_self <- mutate(dungtasks_self, Mins_across_all_biodigester_nozero = rowSums(across(c(minsday_collectdung,minsday_feeddigester,minsday_stirdigester, minsday_maintaindigester)), na.rm = TRUE))
+
+
+dungtasks_self$Mins_across_all_biodigester_nozero[is.na(dungtasks_self$minsday_collectdung) & is.na(dungtasks_self$minsday_feeddigester) & is.na(dungtasks_self$minsday_stirdigester) & is.na(dungtasks_self$minsday_maintaindigester)] <- NA
+
+
+
+print(summary(tableby(group ~ minsday_collectdung + minsday_feeddigester + minsday_stirdigester + minsday_maintaindigester + Mins_across_all_biodigester_inclzero + Mins_across_all_biodigester_nozero, data = dungtasks_self, numeric.stats = c("meansd", "median", "range", "q1q3", "N", "Nmiss2")), digits = 1))
+
+
+## Need to use dungtasks to summarize by hh members according to categories (not sure the excel tables are correct)
+```
+
+```{r cooking-helper}
+cookinghelper$hrs_week_helper_cooks <- rowSums(cookinghelper[,c(5,6)])
+
+cookinghelper$mins_day_helper_cooks <- cookinghelper$hrs_week_helper_cooks*60/7
+cookinghelper <- rename(cookinghelper, primary_helper = `Primary helper (F2)`)
+cookinghelper <- mutate(cookinghelper, Group = case_when(Group == "Control" ~"Non-Customer",
+                                                Group == "Customer" ~ "Customer"))
+```
+
+# Mins/day cooking helper cooks
+``` {r cooking-helper-table, results = "asis"}
+print(summary(tableby(Group ~  mins_day_helper_cooks, data = cookinghelper, numeric.stats = c("meansd", "median", "N"), digits =1 )))
 ```
 
